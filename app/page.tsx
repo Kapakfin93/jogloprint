@@ -23,7 +23,7 @@ export default async function HomePage() {
         <PublicHeader businessInfo={businessInfo} categories={allCategories} />
 
         {/* Main Content Area (padding-top for fixed header) */}
-        <main className="pt-20 sm:pt-28">
+        <main className="pt-28 sm:pt-28">
           {/* Hero Section */}
           <HomeHero businessInfo={businessInfo} />
 

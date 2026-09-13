@@ -37,7 +37,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
         {/* Header */}
         <PublicHeader businessInfo={businessInfo} categories={allCategories} />
 
-        <main className="pt-20 sm:pt-28 pb-16">
+        <main className="pt-28 sm:pt-28 pb-16">
           {/* Breadcrumb Navigation Strip */}
           <div className="bg-white border-b border-slate-200/90 py-3 mb-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
