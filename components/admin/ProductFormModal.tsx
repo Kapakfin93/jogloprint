@@ -36,6 +36,26 @@ export default function ProductFormModal({
   );
 }
 
+const STANDARD_UNITS = [
+  { value: "lembar", label: "lembar (A3+, Brosur, Kartu Nama, Flyer)" },
+  { value: "pcs", label: "pcs (Satuan Barang, Merchandise, Pin, Mug)" },
+  { value: "m²", label: "m² (Meter Persegi / Banner, Spanduk, Backdrop)" },
+  { value: "m lari", label: "m lari (Meter Lari / DTF Sablon, Tekstil)" },
+  { value: "buku", label: "buku (Nota NCR, Buku Kenangan, Booklet)" },
+  { value: "rim", label: "rim (Kop Surat, HVS Massal)" },
+  { value: "set", label: "set (Undangan + Amplop, Paket Custom)" },
+  { value: "pack", label: "pack (Kemasan, Stiker Pack)" },
+  { value: "box", label: "box (Dus Box Kemasan, Box Kartu Nama)" },
+  { value: "roll", label: "roll (Stiker Label Roll, Pita Cetak)" },
+];
+
+function getDefaultUnitForEngine(engine: PricingEngine): string {
+  if (engine === "area") return "m²";
+  if (engine === "meter_lari") return "m lari";
+  if (engine === "bundle") return "buku";
+  return "lembar";
+}
+
 function ProductFormContent({
   product,
   categories,
@@ -48,11 +68,17 @@ function ProductFormContent({
   readonly onSuccess: () => void;
 }) {
   const isEdit = !!product;
+  const initialCategory = categories.find((c) => c.id === (product?.category_id || categories[0]?.id));
+  const defaultUnit = getDefaultUnitForEngine(initialCategory?.pricing_engine || "sheet");
+  const initialUnit = product ? (product.unit_label || "") : defaultUnit;
+  const initialIsCustom = !!initialUnit && !STANDARD_UNITS.some((u) => u.value === initialUnit);
+
   const [categoryId, setCategoryId] = useState(product?.category_id || categories[0]?.id || "");
   const [name, setName] = useState(product?.name || "");
   const [slug, setSlug] = useState(product?.slug || "");
   const [description, setDescription] = useState(product?.description || "");
-  const [unitLabel, setUnitLabel] = useState(product?.unit_label || "");
+  const [unitLabel, setUnitLabel] = useState(initialUnit);
+  const [isCustomUnit, setIsCustomUnit] = useState(initialIsCustom);
   const [minOrderQty, setMinOrderQty] = useState(product?.min_order_qty ?? 1.0);
   const [displayOrder, setDisplayOrder] = useState(product?.display_order || 0);
   const [isActive, setIsActive] = useState(product?.is_active ?? true);
@@ -78,15 +104,9 @@ function ProductFormContent({
     setCategoryId(newCatId);
     if (!isEdit) {
       const cat = categories.find((c) => c.id === newCatId);
-      if (cat?.pricing_engine === "area") {
-        setUnitLabel("m²");
-      } else if (cat?.pricing_engine === "meter_lari") {
-        setUnitLabel("m lari");
-      } else if (cat?.pricing_engine === "bundle") {
-        setUnitLabel("buku");
-      } else {
-        setUnitLabel("lembar");
-      }
+      const newDefault = getDefaultUnitForEngine(cat?.pricing_engine || "sheet");
+      setUnitLabel(newDefault);
+      setIsCustomUnit(false);
     }
   }
 
@@ -146,9 +166,33 @@ function ProductFormContent({
               )}
             </div>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold text-lg">
-            ✕
-          </button>
+          <div className="flex items-center gap-2.5">
+            {isEdit && product?.slug && (
+              isActive ? (
+                <a
+                  href={`/produk/${product.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-xl transition shadow-2xs"
+                  title="Buka halaman publik produk ini di tab baru"
+                >
+                  <span>Lihat di Publik</span>
+                  <span className="text-[11px]">↗</span>
+                </a>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl cursor-not-allowed"
+                  title="Aktifkan status publik produk terlebih dahulu untuk melihat di halaman publik"
+                >
+                  <span>Lihat di Publik</span>
+                  <span className="text-[10px] text-amber-600">(Non-aktif)</span>
+                </span>
+              )
+            )}
+            <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold text-lg p-1">
+              ✕
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -211,17 +255,43 @@ function ProductFormContent({
             </div>
 
             <div>
-              <label htmlFor="p-unit" className="block text-xs font-semibold text-slate-700 mb-1">
-                Satuan Unit (mis. {pricingEngine === "area" ? "m²" : "lembar"})
+              <label htmlFor="p-unit-select" className="block text-xs font-semibold text-slate-700 mb-1">
+                Satuan Unit Tampilan
               </label>
-              <input
-                id="p-unit"
-                type="text"
-                value={unitLabel}
-                onChange={(e) => setUnitLabel(e.target.value)}
-                placeholder={pricingEngine === "area" ? "m²" : "lembar"}
+              <select
+                id="p-unit-select"
+                value={isCustomUnit ? "__custom__" : unitLabel}
+                onChange={(e) => {
+                  if (e.target.value === "__custom__") {
+                    setIsCustomUnit(true);
+                  } else {
+                    setIsCustomUnit(false);
+                    setUnitLabel(e.target.value);
+                  }
+                }}
                 className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:border-amber-500 focus:outline-none"
-              />
+              >
+                {STANDARD_UNITS.map((u) => (
+                  <option key={u.value} value={u.value}>
+                    {u.label}
+                  </option>
+                ))}
+                <option value="__custom__">✨ Lainnya / Kustom (Ketik Sendiri)...</option>
+              </select>
+
+              {isCustomUnit && (
+                <div className="mt-2 animate-in fade-in duration-100">
+                  <input
+                    id="p-unit-custom"
+                    type="text"
+                    value={unitLabel}
+                    onChange={(e) => setUnitLabel(e.target.value)}
+                    placeholder="Ketik satuan kustom (mis: lusin, eksemplar)"
+                    className="w-full rounded-xl border border-amber-300 bg-amber-50/40 px-3.5 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
           </div>
 

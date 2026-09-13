@@ -1,11 +1,37 @@
 import { createClient } from "@/lib/supabase/server";
-import { Product, ProductImage, ProductSpecificationItem } from "@/lib/types/database";
+import { Product, ProductImage, ProductSpecificationItem, PricingEngine } from "@/lib/types/database";
 
 export interface ProductWithDetails extends Product {
   category_name?: string;
   category_slug?: string;
   images?: ProductImage[];
   primary_image_url?: string | null;
+}
+
+function mapProductRecord(item: Record<string, unknown>): ProductWithDetails {
+  const images: ProductImage[] = (item.product_images as ProductImage[]) || [];
+  const categoriesObj = item.categories as { name?: string; slug?: string } | undefined;
+  const primary = images.find((img) => img.is_primary) || images[0] || null;
+
+  return {
+    id: item.id as string,
+    category_id: item.category_id as string,
+    slug: item.slug as string,
+    name: item.name as string,
+    description: (item.description as string) || null,
+    unit_label: (item.unit_label as string) ?? null,
+    pricing_model: (item.pricing_model as PricingEngine) || "sheet",
+    min_order_qty: (item.min_order_qty as number) ?? 1.0,
+    specifications: Array.isArray(item.specifications) ? item.specifications : [],
+    display_order: (item.display_order as number) ?? 0,
+    is_active: Boolean(item.is_active),
+    created_at: item.created_at as string,
+    updated_at: item.updated_at as string,
+    category_name: categoriesObj?.name,
+    category_slug: categoriesObj?.slug,
+    images,
+    primary_image_url: primary ? primary.image_url : null,
+  };
 }
 
 export async function getProducts(categoryId?: string): Promise<ProductWithDetails[]> {
@@ -29,32 +55,7 @@ export async function getProducts(categoryId?: string): Promise<ProductWithDetai
     throw new Error(`Failed to fetch products: ${error.message}`);
   }
 
-  return (data || []).map((item) => {
-    const raw = item as unknown as Record<string, unknown>;
-    const images: ProductImage[] = (raw.product_images as ProductImage[]) || [];
-    const categoriesObj = raw.categories as { name?: string; slug?: string } | undefined;
-    const primary = images.find((img) => img.is_primary) || images[0] || null;
-
-    return {
-      id: item.id,
-      category_id: item.category_id,
-      slug: item.slug,
-      name: item.name,
-      description: item.description,
-      unit_label: item.unit_label ?? null,
-      pricing_model: item.pricing_model || "sheet",
-      min_order_qty: item.min_order_qty ?? 1.0,
-      specifications: Array.isArray(item.specifications) ? item.specifications : [],
-      display_order: item.display_order,
-      is_active: item.is_active,
-      created_at: item.created_at,
-      updated_at: item.updated_at,
-      category_name: categoriesObj?.name,
-      category_slug: categoriesObj?.slug,
-      images,
-      primary_image_url: primary ? primary.image_url : null,
-    };
-  });
+  return (data || []).map((item) => mapProductRecord(item as unknown as Record<string, unknown>));
 }
 
 export async function getProductById(id: string): Promise<ProductWithDetails | null> {
@@ -74,17 +75,7 @@ export async function getProductById(id: string): Promise<ProductWithDetails | n
     throw new Error(`Failed to fetch product by ID: ${error.message}`);
   }
 
-  const images: ProductImage[] = data.product_images || [];
-  const primary = images.find((img) => img.is_primary) || images[0] || null;
-
-  return {
-    ...data,
-    specifications: Array.isArray(data.specifications) ? data.specifications : [],
-    category_name: data.categories?.name,
-    category_slug: data.categories?.slug,
-    images,
-    primary_image_url: primary ? primary.image_url : null,
-  };
+  return mapProductRecord(data as unknown as Record<string, unknown>);
 }
 
 export async function getProductBySlug(slug: string): Promise<ProductWithDetails | null> {
@@ -104,17 +95,7 @@ export async function getProductBySlug(slug: string): Promise<ProductWithDetails
     throw new Error(`Failed to fetch product by slug: ${error.message}`);
   }
 
-  const images: ProductImage[] = data.product_images || [];
-  const primary = images.find((img) => img.is_primary) || images[0] || null;
-
-  return {
-    ...data,
-    specifications: Array.isArray(data.specifications) ? data.specifications : [],
-    category_name: data.categories?.name,
-    category_slug: data.categories?.slug,
-    images,
-    primary_image_url: primary ? primary.image_url : null,
-  };
+  return mapProductRecord(data as unknown as Record<string, unknown>);
 }
 
 export async function createProduct(product: {
@@ -171,12 +152,23 @@ export async function updateProduct(
   return data;
 }
 
+export async function toggleProductActive(id: string, isActive: boolean): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("products")
+    .update({ is_active: isActive })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(`Failed to toggle product status: ${error.message}`);
+  }
+}
+
 export async function deleteProduct(id: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("delete_product_admin", { p_id: id });
 
   if (error) {
-    // Fallback to direct delete if RPC not available
     const { error: fallbackError } = await supabase
       .from("products")
       .delete()
@@ -187,9 +179,6 @@ export async function deleteProduct(id: string): Promise<void> {
   }
 }
 
-/**
- * High-performance atomic product duplicate via PostgreSQL stored procedure (RPC)
- */
 export async function duplicateProduct(
   sourceId: string,
   newName?: string,
@@ -208,4 +197,3 @@ export async function duplicateProduct(
 
   return data as string;
 }
-

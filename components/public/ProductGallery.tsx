@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ProductImage } from "@/lib/types/database";
 import { getGalleryUrl, getThumbnailUrl } from "@/lib/services/image-url.service";
 
@@ -18,12 +19,15 @@ export default function ProductGallery({ productName, images }: ProductGalleryPr
     <div className="flex flex-col gap-4">
       {/* Featured Photo Frame */}
       <div className="relative w-full rounded-2xl bg-white p-2 shadow-xs border border-slate-200/90 overflow-hidden group">
-        <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
+        <div className="relative aspect-4/3 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
           {activeImage ? (
-            <img
+            <Image
               src={getGalleryUrl(activeImage.image_url, 900)}
               alt={activeImage.alt_text || productName}
-              className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover transition-all duration-300 group-hover:scale-105"
             />
           ) : (
             <div className="flex flex-col items-center justify-center text-slate-400">
@@ -60,11 +64,15 @@ export default function ProductGallery({ productName, images }: ProductGalleryPr
                     : "border-slate-200 opacity-70 hover:opacity-100"
                 }`}
               >
-                <img
-                  src={getThumbnailUrl(img.image_url, 200)}
-                  alt={img.alt_text || `${productName} view ${idx + 1}`}
-                  className="w-full h-full object-cover rounded-lg"
-                />
+                <div className="relative w-full h-full rounded-lg overflow-hidden">
+                  <Image
+                    src={getThumbnailUrl(img.image_url, 200)}
+                    alt={img.alt_text || `${productName} view ${idx + 1}`}
+                    fill
+                    sizes="100px"
+                    className="object-cover"
+                  />
+                </div>
               </button>
             );
           })}

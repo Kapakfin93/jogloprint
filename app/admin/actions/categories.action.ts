@@ -63,6 +63,24 @@ export async function saveCategoryAction(
   }
 }
 
+export async function toggleCategoryActiveAction(id: string, isActive: boolean): Promise<CategoryActionResult> {
+  try {
+    if (!id) {
+      return { success: false, error: "ID Kategori tidak valid" };
+    }
+
+    const { toggleCategoryActive } = await import("@/lib/repositories/categories.repository");
+    await toggleCategoryActive(id, isActive);
+
+    revalidatePath("/admin/kategori");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Gagal mengubah status aktif kategori";
+    return { success: false, error: message };
+  }
+}
+
 export async function deleteCategoryAction(id: string): Promise<CategoryActionResult> {
   try {
     if (!id) {

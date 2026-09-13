@@ -105,6 +105,18 @@ export async function updateCategory(
   return data;
 }
 
+export async function toggleCategoryActive(id: string, isActive: boolean): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("categories")
+    .update({ is_active: isActive })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(`Failed to toggle category status: ${error.message}`);
+  }
+}
+
 export async function deleteCategory(id: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
@@ -113,6 +125,11 @@ export async function deleteCategory(id: string): Promise<void> {
     .eq("id", id);
 
   if (error) {
+    if (error.code === "23503" || error.message.includes("violates foreign key constraint")) {
+      throw new Error(
+        "Kategori tidak dapat dihapus karena masih memuat produk. Pindahkan atau hapus produk di dalamnya terlebih dahulu."
+      );
+    }
     throw new Error(`Failed to delete category: ${error.message}`);
   }
 }

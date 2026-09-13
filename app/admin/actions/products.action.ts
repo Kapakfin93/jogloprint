@@ -141,11 +141,30 @@ export async function duplicateProductAction(
 
     revalidatePath("/admin/produk");
     revalidatePath("/admin/kategori");
-    revalidatePath("/");
-
     return { success: true, productId: newId };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Gagal menduplikasi produk";
     return { success: false, error: message };
   }
 }
+
+export async function toggleProductActiveAction(id: string, isActive: boolean): Promise<ProductActionResult> {
+  try {
+    if (!id) {
+      return { success: false, error: "ID Produk tidak valid" };
+    }
+
+    const { toggleProductActive } = await import("@/lib/repositories/products.repository");
+    await toggleProductActive(id, isActive);
+
+    revalidatePath("/admin/produk");
+    revalidatePath("/admin/kategori");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Gagal mengubah status aktif produk";
+    return { success: false, error: message };
+  }
+}
+

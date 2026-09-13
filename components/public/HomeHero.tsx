@@ -14,7 +14,7 @@ export default function HomeHero({ businessInfo }: HomeHeroProps) {
         <div className="rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 bg-slate-900">
           <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-800">
             {/* Banner 1: Cetak Indoor & Outdoor */}
-            <div className="lg:col-span-4 bg-gradient-to-br from-amber-700 via-amber-800 to-amber-950 p-6 sm:p-8 text-white flex flex-col justify-between relative overflow-hidden">
+            <div className="lg:col-span-4 bg-linear-to-br from-amber-700 via-amber-800 to-amber-950 p-6 sm:p-8 text-white flex flex-col justify-between relative overflow-hidden">
               <div className="relative z-10 space-y-3">
                 <span className="inline-block bg-white/20 text-white text-[10px] sm:text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                   Digital Printing
@@ -45,15 +45,15 @@ export default function HomeHero({ businessInfo }: HomeHeroProps) {
             </div>
 
             {/* Banner 2: Cutting Stiker Express (Best Seller UMKM) */}
-            <div className="lg:col-span-5 bg-gradient-to-br from-white via-slate-50 to-amber-50/40 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
+            <div className="lg:col-span-5 bg-linear-to-br from-white via-slate-50 to-amber-50/40 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
               <div className="relative z-10 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="bg-amber-600 text-white text-[10px] sm:text-xs font-bold px-3 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
                     Best Seller UMKM
                   </span>
                   <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold text-xs bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Siap Cetak Cepat
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Siap Cetak Cepat</span>
                   </span>
                 </div>
                 <div>
@@ -96,7 +96,7 @@ export default function HomeHero({ businessInfo }: HomeHeroProps) {
             </div>
 
             {/* Banner 3: Promo & Kemasan */}
-            <div className="lg:col-span-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8 text-white flex flex-col justify-between">
+            <div className="lg:col-span-3 bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8 text-white flex flex-col justify-between">
               <div className="space-y-3">
                 <span className="bg-emerald-600 text-white text-[10px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider">
                   Promo UMKM

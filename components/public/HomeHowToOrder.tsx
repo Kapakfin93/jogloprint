@@ -30,7 +30,7 @@ export default function HomeHowToOrder() {
     <section className="w-full py-3 mb-4">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row items-center gap-4">
-          <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white px-5 py-3 rounded-xl flex items-center gap-3 shrink-0 justify-center w-full lg:w-auto shadow-sm">
+          <div className="bg-linear-to-r from-amber-600 to-amber-700 text-white px-5 py-3 rounded-xl flex items-center gap-3 shrink-0 justify-center w-full lg:w-auto shadow-sm">
             <span className="text-2xl">🛒</span>
             <div className="leading-none text-left">
               <span className="text-[10px] uppercase font-bold tracking-wider block text-amber-200">

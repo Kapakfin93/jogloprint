@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CategoryWithStats } from "@/lib/repositories/categories.repository";
 import CategoryFormModal from "./CategoryFormModal";
-import { deleteCategoryAction } from "@/app/admin/actions/categories.action";
+import { deleteCategoryAction, toggleCategoryActiveAction } from "@/app/admin/actions/categories.action";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -17,6 +17,8 @@ export default function CategoryList({ initialCategories }: CategoryListProps) {
   const [selectedCategory, setSelectedCategory] = useState<CategoryWithStats | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [optimisticActiveMap, setOptimisticActiveMap] = useState<Record<string, boolean>>({});
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const activeCategories = initialCategories.filter((c) => !deletedIds.has(c.id));
 
@@ -28,6 +30,22 @@ export default function CategoryList({ initialCategories }: CategoryListProps) {
   function handleEdit(cat: CategoryWithStats) {
     setSelectedCategory(cat);
     setIsModalOpen(true);
+  }
+
+  async function handleToggleActive(catId: string, currentStatus: boolean) {
+    const nextStatus = !currentStatus;
+    setOptimisticActiveMap((prev) => ({ ...prev, [catId]: nextStatus }));
+    setTogglingId(catId);
+
+    const res = await toggleCategoryActiveAction(catId, nextStatus);
+    setTogglingId(null);
+
+    if (!res.success) {
+      alert(res.error || "Gagal mengubah status aktif");
+      setOptimisticActiveMap((prev) => ({ ...prev, [catId]: currentStatus }));
+    } else {
+      router.refresh();
+    }
   }
 
   async function handleDelete(cat: CategoryWithStats) {
@@ -79,7 +97,7 @@ export default function CategoryList({ initialCategories }: CategoryListProps) {
               <th className="px-6 py-3.5">Nama & Slug</th>
               <th className="px-6 py-3.5">Engine Model (Guard)</th>
               <th className="px-6 py-3.5">Produk Terdaftar</th>
-              <th className="px-6 py-3.5">Status</th>
+              <th className="px-6 py-3.5">Status Publik</th>
               <th className="px-6 py-3.5 text-right">Aksi</th>
             </tr>
           </thead>
@@ -91,61 +109,70 @@ export default function CategoryList({ initialCategories }: CategoryListProps) {
                 </td>
               </tr>
             ) : (
-              activeCategories.map((cat) => (
-                <tr key={cat.id} className="hover:bg-slate-50/80">
-                  <td className="px-6 py-4 font-mono text-xs text-slate-400">
-                    #{cat.display_order}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-slate-800">{cat.name}</div>
-                    <div className="text-xs font-mono text-slate-400">/{cat.slug}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
-                      {cat.pricing_engine === "area" && "📐 Luas Area (m²)"}
-                      {cat.pricing_engine === "meter_lari" && "📏 Meter Lari"}
-                      {cat.pricing_engine === "bundle" && "📚 Paket/Buku"}
-                      {(!cat.pricing_engine || cat.pricing_engine === "sheet") && "📄 Lembaran/Pcs"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Link
-                      href={`/admin/produk?category=${cat.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 hover:bg-amber-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-amber-800 transition"
-                      title="Lihat daftar produk pada kategori ini"
-                    >
-                      <span>📦 {cat.products_count ?? 0} Produk</span>
-                      <span className="text-[10px]">→</span>
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        cat.is_active
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-slate-100 text-slate-600 border border-slate-200"
-                      }`}
-                    >
-                      {cat.is_active ? "Aktif" : "Non-aktif"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button
-                      onClick={() => handleEdit(cat)}
-                      className="rounded-lg px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(cat)}
-                      disabled={deletingId === cat.id}
-                      className="rounded-lg px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 transition disabled:opacity-50"
-                    >
-                      {deletingId === cat.id ? "..." : "Hapus"}
-                    </button>
-                  </td>
-                </tr>
-              ))
+              activeCategories.map((cat) => {
+                const isCatActive = optimisticActiveMap[cat.id] ?? cat.is_active;
+
+                return (
+                  <tr key={cat.id} className="hover:bg-slate-50/80">
+                    <td className="px-6 py-4 font-mono text-xs text-slate-400">
+                      #{cat.display_order}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-800">{cat.name}</div>
+                      <div className="text-xs font-mono text-slate-400">/{cat.slug}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
+                        {cat.pricing_engine === "area" && "📐 Luas Area (m²)"}
+                        {cat.pricing_engine === "meter_lari" && "📏 Meter Lari"}
+                        {cat.pricing_engine === "bundle" && "📚 Paket/Buku"}
+                        {(!cat.pricing_engine || cat.pricing_engine === "sheet") && "📄 Lembaran/Pcs"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/admin/produk?category=${cat.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 hover:bg-amber-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-amber-800 transition"
+                        title="Lihat daftar produk pada kategori ini"
+                      >
+                        <span>📦 {cat.products_count ?? 0} Produk</span>
+                        <span className="text-[10px]">→</span>
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(cat.id, isCatActive)}
+                        disabled={togglingId === cat.id}
+                        title={isCatActive ? "Klik untuk sembunyikan dari publik" : "Klik untuk tampilkan di publik"}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition shadow-2xs cursor-pointer ${
+                          isCatActive
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
+                            : "bg-slate-100 text-slate-500 border border-slate-300 hover:bg-slate-200"
+                        } disabled:opacity-50`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${isCatActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                        <span>{isCatActive ? "Aktif" : "Sembunyi"}</span>
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-right space-x-2">
+                      <button
+                        onClick={() => handleEdit(cat)}
+                        className="rounded-lg px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(cat)}
+                        disabled={deletingId === cat.id}
+                        className="rounded-lg px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                      >
+                        {deletingId === cat.id ? "..." : "Hapus"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

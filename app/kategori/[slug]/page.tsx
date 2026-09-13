@@ -87,7 +87,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
                   Produk untuk kategori {category.name} sedang dalam proses persiapan oleh tim Joglo Print.
                 </p>
                 <a
-                  href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Halo Joglo Print, saya mau tanya pesanan cetak untuk kategori ${category.name}...`)}`}
+                  href={`https://wa.me/${waNumber}?text=${encodeURIComponent("Halo Joglo Print, saya mau tanya pesanan cetak untuk kategori " + category.name + "...")}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-700 transition"
@@ -105,7 +105,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             )}
 
             {/* Custom Order Callout Banner */}
-            <div className="mt-12 rounded-3xl bg-gradient-to-r from-amber-700 via-amber-800 to-amber-900 p-6 sm:p-8 text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="mt-12 rounded-3xl bg-linear-to-r from-amber-700 via-amber-800 to-amber-900 p-6 sm:p-8 text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-6">
               <div className="space-y-1 text-center sm:text-left">
                 <h3 className="text-lg sm:text-xl font-bold">
                   Butuh Ukuran, Bahan, atau Finishing Khusus?
@@ -115,7 +115,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
                 </p>
               </div>
               <a
-                href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Halo Joglo Print, saya mau konsultasi cetak custom untuk kategori ${category.name}...`)}`}
+                href={`https://wa.me/${waNumber}?text=${encodeURIComponent("Halo Joglo Print, saya mau konsultasi cetak custom untuk kategori " + category.name + "...")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-white text-amber-900 px-5 py-3 text-xs sm:text-sm font-bold shadow-md hover:bg-amber-50 transition"
