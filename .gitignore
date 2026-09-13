@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# internal scratch & private docs
+.scratch/
+scratch/
+doc_spec produck/
+doc_spec*/
+.agents/
+*.log

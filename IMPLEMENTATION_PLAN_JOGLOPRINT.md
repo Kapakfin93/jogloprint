@@ -1,0 +1,146 @@
+# Implementation Plan: Website Joglo Print — Pilot Kategori Stiker & Label
+
+## Overview
+
+Membangun website katalog Joglo Print (Home → Kategori → Produk) + admin dashboard CRUD, database Supabase terpisah, deploy Vercel. Desain visual sudah final di Google Stitch (3 halaman: Home, Kategori Stiker & Label, Detail Produk Stiker Kromo A3+) — dipakai sebagai referensi visual, bukan sumber kode literal. Scope pilot: 1 kategori penuh (Stiker & Label) untuk membuktikan alur admin → database → frontend, sebelum direplikasi ke kategori lain.
+
+## Architecture Decisions
+
+- **Monorepo Next.js (App Router)**, publik + admin dalam 1 codebase.
+- **Supabase project baru**, terpisah total dari KasirGrafity.
+- **URL flat** (`/produk/{slug}`, bukan nested di bawah kategori) — supaya produk bisa pindah kategori tanpa merusak SEO.
+- **Finishing = varian bertingkat harga** (`product_variants` + `variant_price_tiers`); **Laminasi = add-on flat** (`product_addons`) — bukan varian penuh, supaya data entry admin ringan.
+- **Cloudinary** untuk foto (bukan Supabase Storage).
+- **Tanpa cart/checkout** — CTA "Pesan via WhatsApp" generate teks terstruktur berlabel tetap (Produk/Finishing/Laminasi/Jumlah/Harga/Link), disiapkan supaya kompatibel di-parsing bot WA di masa depan.
+- **Layout "dikunci" di kode** (hasil Stitch) — admin panel hanya CRUD data (teks, harga, foto), bukan page builder.
+- Skema disiapkan agar mudah ditambah tabel `orders` nanti (ekstensi masa depan untuk bot agentic) — tidak dibangun sekarang (YAGNI).
+
+### Addendum: Multi-Engine Pricing (diputuskan setelah audit arsitektur, menyusul Task 6)
+
+Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar (stiker). Banner dihitung per m², Spanduk Kain per meter lari. Keputusan setelah audit:
+
+- **4 engine**: `sheet` (lembar/pcs, default), `bundle` (buku/rim), `area` (m², dihitung dari panjang×lebar cm), `meter_lari` (per meter panjang).
+- **Engine adalah properti Kategori** (`categories.pricing_engine`), cascade otomatis ke `products.pricing_model` & `unit_label` via DB trigger saat kategori diedit.
+- **`sheet`/`bundle`** tetap 100% pakai mekanisme `product_variants`+`variant_price_tiers` yang sudah ada sejak awal (tidak ada perubahan).
+- **`area`**: dihitung dari 2 dimensi (panjang×lebar cm) via `calculateAreaPrice()`, pure function terpisah di `pricing.service.ts`. Minimal order pakai `products.min_order_qty` (di-rename dari `min_order_area`).
+- **`meter_lari`**: dihitung dari 1 dimensi (panjang meter) via `calculateMeterLariPrice()`, pure function terpisah. **Lebar bahan TIDAK mempengaruhi harga** — cuma info di `specifications` (dikonfirmasi Joe, mengacu pricelist supplier: harga/meter sama untuk semua pilihan lebar). Varian (`product_variants`) untuk kategori ini tetap dipakai untuk axis Finishing (mis. "Obras + Tali Samping"), bukan lebar.
+- **Kolom `variant_price_tiers.price_per_unit` reinterpretasi kontekstual** sesuai `pricing_model` produk induknya (Rp/lembar, Rp/m², atau Rp/meter) — didokumentasikan via `COMMENT ON COLUMN` di database, WAJIB selalu join ke `products.pricing_model` sebelum menafsirkan nilai ini di query manapun.
+
+### Addendum: Multi-Engine Pricing (diputuskan setelah audit arsitektur, menyusul Task 6)
+
+Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar (stiker). Banner dihitung per m², Spanduk Kain per meter lari. Keputusan setelah audit:
+
+- **4 engine**: `sheet` (lembar/pcs, default), `bundle` (buku/rim), `area` (m², dihitung dari panjang×lebar cm), `meter_lari` (per meter panjang).
+- **Engine adalah properti Kategori** (`categories.pricing_engine`), cascade otomatis ke `products.pricing_model` & `unit_label` via DB trigger saat kategori diedit.
+- **`sheet`/`bundle`** tetap 100% pakai mekanisme `product_variants`+`variant_price_tiers` yang sudah ada sejak awal (tidak ada perubahan).
+- **`area`**: dihitung dari 2 dimensi (panjang×lebar cm) via `calculateAreaPrice()`, pure function terpisah di `pricing.service.ts`. Minimal order pakai `products.min_order_qty` (di-rename dari `min_order_area`).
+- **`meter_lari`**: dihitung dari 1 dimensi (panjang meter) via `calculateMeterLariPrice()`, pure function terpisah. **Lebar bahan TIDAK mempengaruhi harga** — cuma info di `specifications` (dikonfirmasi Joe, mengacu pricelist supplier: harga/meter sama untuk semua pilihan lebar). Varian (`product_variants`) untuk kategori ini tetap dipakai untuk axis Finishing (mis. "Obras + Tali Samping"), bukan lebar.
+- **Kolom `variant_price_tiers.price_per_unit` reinterpretasi kontekstual** sesuai `pricing_model` produk induknya (Rp/lembar, Rp/m², atau Rp/meter) — didokumentasikan via `COMMENT ON COLUMN` di database, WAJIB selalu join ke `products.pricing_model` sebelum menafsirkan nilai ini di query manapun.
+
+## Task List
+
+### Phase 1: Foundation
+
+- [ ] **Task 1 — Setup Supabase project + schema.** Buat project Supabase baru. Buat tabel: `categories`, `products`, `product_variants`, `variant_price_tiers`, `product_addons`, `product_images`, `business_info`. Aktifkan RLS: publik read-only, write hanya service role/owner.
+  - Acceptance: semua tabel dibuat, RLS policy publik READ berhasil, WRITE dari anon key ditolak.
+  - Verification: test manual via Supabase SQL editor + coba insert pakai anon key (harus gagal).
+  - Dependencies: None. Scope: S.
+
+- [ ] **Task 2 — Setup Next.js repo skeleton.** Init project Next.js App Router + Tailwind, koneksi ke Supabase (client & server helper di `lib/supabase/`), koneksi Cloudinary (upload helper), deploy kosong pertama ke Vercel.
+  - Acceptance: `npm run dev` jalan, halaman kosong ter-deploy ke Vercel URL sementara, env var Supabase & Cloudinary terbaca.
+  - Verification: `npm run build` sukses; buka URL Vercel, tidak error.
+  - Dependencies: Task 1. Scope: S.
+
+### Checkpoint: Foundation
+
+- [ ] Supabase & Next.js saling terhubung (test query dummy berhasil)
+- [ ] Deploy pipeline Vercel jalan otomatis dari git push
+
+### Phase 2: Core Features (Vertical Slice — Kategori Stiker & Label)
+
+- [ ] **Task 3 — Admin: CRUD Kategori.** Halaman `/admin/kategori` (list + form tambah/edit). Auth guard Supabase Auth (1 akun owner).
+  - Acceptance: admin bisa login, tambah kategori "Stiker & Label" dengan slug auto-generate, muncul di list.
+  - Verification: manual — buat 1 kategori, cek tersimpan di Supabase.
+  - Dependencies: Task 2. Scope: M.
+
+- [ ] **Task 4 — Admin: CRUD Produk + Foto (Cloudinary).** Halaman `/admin/produk` — form nama, kategori, deskripsi, spesifikasi (markdown), upload foto multi ke Cloudinary.
+  - Acceptance: admin bisa tambah produk "Stiker Kromo A3+" dengan minimal 1 foto ter-upload.
+  - Verification: manual — cek foto muncul di Cloudinary dashboard & URL tersimpan di `product_images`.
+  - Dependencies: Task 3. Scope: M.
+
+- [ ] **Task 5 — Admin: CRUD Varian (Finishing) + Tier Harga.** Halaman `/admin/produk/[id]/varian` — tambah/hapus varian dengan NAMA BEBAS (bukan pilihan tetap/dropdown fixed) karena tiap lini produk punya pola finishing berbeda: Stiker (Kiss Cut/Die Cut/Tanpa Potong), Banner (Rangka+Mata Ayam/Tanpa Rangka), Sablon DTF (1 Sisi/2 Sisi), Nota (1 Ply/2 Ply/3 Ply), dst. Tiap varian punya tabel tier qty×harga sendiri (tambah/hapus baris), pola sama seperti `ProductSpecificationEditor` di Task 4 (dinamis, generik, reusable lintas kategori).
+  - Acceptance: minimal 1 produk pilot ("Stiker Kromo A3+") punya 3 varian dengan nama sesuai data nyata, masing-masing minimal 4 baris tier harga. UI TIDAK mengandung nama varian ter-hardcode di kode (mis. tidak ada `enum`/dropdown tetap berisi "Kiss Cut").
+  - Verification: manual — input data dummy dengan nama varian custom di luar contoh stiker (mis. coba tambah varian "Test Custom Finishing"), cek tersimpan benar di `variant_price_tiers` tanpa error.
+  - Dependencies: Task 4. Scope: M.
+
+- [ ] **Task 6 — Admin: CRUD Add-on (Laminasi).** Halaman `/admin/produk/[id]/addon` — tambah add-on (nama + harga tambahan flat).
+  - Acceptance: 1 produk punya 3 add-on (Tanpa/Glossy/Doff) dengan harga tambahan masing-masing.
+  - Verification: manual cek tabel `product_addons`.
+  - Dependencies: Task 4. Scope: S.
+
+- [ ] **Task 7 — Halaman publik: Home.** Implementasi sesuai desain Stitch (revisi per-kategori section). Query kategori yang punya produk + 3-4 produk preview per kategori.
+  - Acceptance: kategori tanpa produk tidak muncul; kategori dengan produk tampil dengan preview benar.
+  - Verification: manual — matikan sementara 1 produk, cek section kategori ikut hilang kalau produk kosong.
+  - Dependencies: Task 5, 6 (butuh data nyata untuk uji). Scope: M.
+
+- [ ] **Task 8 — Halaman publik: Kategori.** Implementasi `/kategori/[slug]` sesuai desain Stitch — grid semua produk dalam kategori.
+  - Acceptance: halaman `/kategori/stiker-label` menampilkan seluruh produk yang diinput admin.
+  - Verification: manual cross-check jumlah produk di admin vs yang tampil.
+  - Dependencies: Task 5, 6. Scope: S.
+
+- [ ] **Task 9a — Detail Produk: layout statis + pemilih Finishing.** Implementasi `/produk/[slug]` — galeri foto (thumbnail+gallery Cloudinary), nama, deskripsi, render `specifications` (array label/value, 2 kolom sesuai desain Stitch), pemilih varian Finishing (dinamis dari `product_variants`, default = varian `is_default=true`), tabel tier harga varian yang sedang dipilih (update saat varian diganti).
+  - Acceptance: ganti pilihan Finishing → tabel tier harga di bawahnya berubah sesuai varian yang dipilih (belum ada kalkulasi qty/addon di tahap ini).
+  - Dependencies: Task 5. Scope: M.
+
+- [ ] **Task 9b — Detail Produk: pemilih Add-on.** Tambahkan pemilih Laminasi (dinamis dari `product_addons`, default = addon `is_default=true`), tampilkan harga tambahan tiap opsi.
+  - Acceptance: ganti pilihan add-on mengubah tampilan biaya tambahan yang akan dipakai di kalkulasi Task 9c.
+  - Dependencies: Task 6, 9a. Scope: S.
+
+- [ ] **Task 9c — Detail Produk: input qty + kalkulasi total harga live.** Input jumlah pesanan (qty), panggil `findApplicableTier()` dari `pricing.service.ts` untuk cari tier sesuai qty pada varian terpilih, lalu `calculateTotalPrice()` untuk total akhir (tier+addon)×qty. WAJIB reuse fungsi dari pricing.service.ts, TIDAK boleh menulis ulang logic kalkulasi di komponen.
+  - Acceptance: perubahan qty/finishing/addon menghasilkan total harga yang benar secara matematis, diverifikasi manual minimal 4 kombinasi berbeda (dicatat di laporan: input → hasil tampilan → hasil hitung manual, harus sama persis).
+  - Verification: manual — 4 kombinasi (mis. Kiss Cut+Tanpa Laminasi qty 5; Kiss Cut+Glossy qty 50; Die Cut+Doff qty 120; Tanpa Potong+Tanpa Laminasi qty 1).
+  - Dependencies: Task 9b. Scope: M.
+
+- [ ] **Task 10 — CTA WhatsApp terstruktur.** Komponen `WhatsAppCTA` generate teks pre-filled (label tetap) dari state pilihan + `business_info.whatsapp_number`, buka `wa.me`.
+  - Acceptance: klik CTA membuka WA dengan teks sesuai template yang sudah disepakati, termasuk link produk.
+  - Verification: manual — klik, cek teks di WA terbuka sesuai format.
+  - Dependencies: Task 9. Scope: S.
+
+### Checkpoint: Core Features
+
+- [ ] Alur end-to-end jalan: admin input produk baru → langsung muncul di Home, Kategori, dan Detail Produk → klik pesan → WA terbuka dengan teks benar
+- [ ] Review bareng Joe sebelum lanjut ke Phase 3
+
+### Phase 3: Polish & SEO
+
+- [ ] **Task 11 — Admin: form Info Bisnis.** Halaman `/admin/info-bisnis` — alamat, jam buka per hari (bukan "24 jam"), nomor WA, area pengiriman.
+  - Acceptance: data ini dipakai otomatis di footer semua halaman + JSON-LD.
+  - Dependencies: Task 2. Scope: S.
+
+- [ ] **Task 12 — SEO: JSON-LD & meta tags.** Pasang `LocalBusiness` schema (semua halaman) + `Product` schema (halaman produk), title/meta description dinamis per halaman.
+  - Acceptance: Google Rich Results Test lolos tanpa error untuk halaman produk & home.
+  - Verification: cek via search.google.com/test/rich-results.
+  - Dependencies: Task 7, 8, 9, 11. Scope: M.
+
+- [ ] **Task 13 — Sitemap & robots.txt.** `app/sitemap.ts` auto-generate dari data kategori+produk.
+  - Acceptance: `/sitemap.xml` berisi semua URL kategori & produk yang ada di database.
+  - Dependencies: Task 7, 8, 9. Scope: XS.
+
+### Checkpoint: Complete (Pilot Kategori Stiker & Label)
+
+- [ ] Semua acceptance criteria Task 1-13 terpenuhi
+- [ ] Domain final dibeli & disambungkan (kalau sudah diputuskan)
+- [ ] Siap direplikasi ke kategori Wave 1 lainnya (tinggal input data lewat admin, tanpa kode baru)
+
+## Risks and Mitigations
+
+| Risk                                                               | Impact | Mitigation                                                                                                            |
+| ------------------------------------------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| Deskripsi produk belum siap (bottleneck yang sudah diidentifikasi) | Medium | Build tetap jalan dengan data placeholder; deskripsi dicicil paralel via tracker Notion, tidak jadi blocker Task 1-10 |
+| Logic kalkulasi harga dinamis (Task 9) meleset                     | High   | Wajib verifikasi manual dengan beberapa kombinasi sebelum checkpoint                                                  |
+| Domain belum dibeli saat deploy                                    | Low    | Deploy dulu ke \*.vercel.app, sambungkan domain belakangan tanpa perlu build ulang                                    |
+
+## Open Questions
+
+- Apakah foto pilot (Stiker Kromo A3+, dst) sudah tersedia untuk Task 4, atau pakai placeholder dulu?
+- Target waktu penyelesaian pilot ini kapan (untuk estimasi cicilan deskripsi & build)?
