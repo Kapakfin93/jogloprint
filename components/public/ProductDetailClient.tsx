@@ -13,6 +13,7 @@ import {
   generateOrderMessage,
   generateWhatsAppUrl,
 } from "@/lib/services/whatsapp-message.service";
+import { useOrderList } from "@/context/OrderListContext";
 import VariantSelector from "./VariantSelector";
 import AddonSelector from "./AddonSelector";
 import QuantityInput from "./QuantityInput";
@@ -44,6 +45,9 @@ export default function ProductDetailClient({
   lowestPrice,
   whatsappNumber,
 }: ProductDetailClientProps) {
+  const { addItem } = useOrderList();
+  const [isAddedSuccess, setIsAddedSuccess] = useState(false);
+
   const isArea = pricingModel === "area";
   const isMeterLari = pricingModel === "meter_lari";
   const defaultVariant = variants.find((v) => v.is_default) || variants[0] || null;
@@ -124,7 +128,7 @@ export default function ProductDetailClient({
     billedAreaM2: isArea ? areaCalc?.billedAreaM2 : undefined,
   });
 
-  const waNumber = whatsappNumber || "628123456789";
+  const waNumber = whatsappNumber || "6281390286826";
   const whatsappUrl = generateWhatsAppUrl(waNumber, orderMessage);
 
   let bannerTitle = "Harga Grosir Fleksibel";
@@ -135,6 +139,29 @@ export default function ProductDetailClient({
   } else if (isMeterLari) {
     bannerTitle = "Harga Cetak / Meter Lari (m)";
     bannerSub = "Hitungan otomatis per panjang meter";
+  }
+
+  function handleAddToOrderList() {
+    addItem({
+      productName,
+      productSlug,
+      variantName: selectedVariant?.variant_name || "-",
+      addonName: selectedAddon?.name || "Standar / Tanpa Tambahan",
+      addonPrice: addonFlat,
+      unitPrice: calcUnitPrice,
+      qty,
+      unitLabel: isArea ? "pcs" : safeUnit,
+      pricingModel: typeof pricingModel === "string" ? pricingModel : undefined,
+      lengthCm: isArea ? lengthCm : undefined,
+      widthCm: isArea ? widthCm : undefined,
+      rawAreaM2: isArea ? areaCalc?.rawAreaM2 : undefined,
+      billedAreaM2: isArea ? areaCalc?.billedAreaM2 : undefined,
+      totalPerUnit,
+      subtotal: grandTotal,
+      productUrl,
+    });
+    setIsAddedSuccess(true);
+    setTimeout(() => setIsAddedSuccess(false), 2500);
   }
 
   return (
@@ -220,6 +247,8 @@ export default function ProductDetailClient({
         whatsappUrl={whatsappUrl}
         whatsappNumber={waNumber}
         productName={productName}
+        onAddToOrderList={handleAddToOrderList}
+        isAddedSuccess={isAddedSuccess}
       />
 
       {/* 6. Reactive Tiered Volume Pricing Table */}

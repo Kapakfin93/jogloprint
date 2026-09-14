@@ -10,7 +10,7 @@ interface HomeHeroProps {
 }
 
 export default function HomeHero({ businessInfo, banners }: HomeHeroProps) {
-  const waNumber = businessInfo?.whatsapp_number || "628123456789";
+  const waNumber = businessInfo?.whatsapp_number || "6281390286826";
   const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent("Halo Joglo Print, saya mau tanya order cetak...")}`;
   const activeBanners = banners;
 

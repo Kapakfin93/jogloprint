@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import OrderListClientWrapper from "@/components/public/OrderListClientWrapper";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,6 +26,7 @@ export const metadata: Metadata = {
     "Pusat cetak stiker, banner/MMT, sablon DTF, nota custom & merchandise cepat dan berkualitas untuk UMKM dan masyarakat Demak & sekitarnya.",
 };
 
+
 export default function RootLayout({
   children,
 }: {
@@ -36,7 +38,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 selection:bg-amber-500 selection:text-white">
-        {children}
+        <OrderListClientWrapper>
+          {children}
+        </OrderListClientWrapper>
       </body>
     </html>
   );

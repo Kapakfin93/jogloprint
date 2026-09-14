@@ -132,6 +132,43 @@ Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar 
 - [ ] Domain final dibeli & disambungkan (kalau sudah diputuskan)
 - [ ] Siap direplikasi ke kategori Wave 1 lainnya (tinggal input data lewat admin, tanpa kode baru)
 
+## Catatan Repo
+
+- Repo GitHub (`Kapakfin93/jogloprint`) sengaja **PUBLIC** untuk sementara (fase pre-build/audit), supaya bisa diverifikasi langsung tanpa akses MCP. **WAJIB diubah ke Private sebelum Task 12-13** (SEO/go-live) — jangan lupa cek ini sebelum publikasi resmi.
+
+## Backlog (belum prioritas, dicatat supaya tidak hilang)
+
+- **SKU auto-generate**: saat ini manual/NULL, belum ada generator otomatis. Tidak urgent — kolom `sku` belum dipakai logic manapun (barcode/integrasi fisik belum ada).
+- **Uji nyata parallel deletion**: klaim "aman via ACID transaction" masih argumen teoretis, belum dibuktikan dengan tes 2 tab admin bersamaan. Risiko rendah untuk 1 admin, revisit kalau ada lebih dari 1 admin nanti.
+- **Live Preview Versi B** (real-time sync sambil mengetik, sebelum simpan): ditunda — Versi A (tombol buka halaman publik setelah simpan) dikerjakan sekarang, lihat Task 14.
+
+### Task 14 — Admin: Tombol Preview Publik
+
+Tambahkan tombol "Lihat di Halaman Publik" di `ProductList.tsx` (tiap baris) dan di form edit produk — buka `/produk/[slug]` di tab baru. Kalau produk berstatus non-aktif, buka tetap boleh (khusus akses dari admin, bukan publik) ATAU tampilkan pesan "Aktifkan dulu untuk preview" — pilih salah satu, agent boleh tentukan yang lebih simpel.
+
+- Acceptance: klik tombol dari admin → halaman publik produk terbuka tab baru, data sesuai yang tersimpan.
+- Dependencies: Task 9 (halaman produk publik sudah ada). Scope: XS.
+
+### Task 15 — Daftar Pesanan Sementara (Multi-Item WA Composer)
+
+Bukan cart/checkout (tidak ada pembayaran) — cuma cara kumpulkan beberapa produk jadi 1 pesan WA terstruktur. Client-side saja (React Context + localStorage), TANPA tabel database baru.
+
+- Tombol "Pesan via WhatsApp Sekarang" (existing, per-produk) TETAP ADA — tambahkan tombol baru "Tambah ke Daftar Pesanan" berdampingan.
+- Floating badge (ikon + jumlah item) site-wide → klik buka panel daftar item (tiap item: produk, varian, addon, qty, subtotal, tombol hapus).
+- Tombol "Kirim Semua via WhatsApp" di panel: generate 1 pesan terstruktur — daftar item bernomor (format label sama seperti template 1-item: Produk/Finishing/Addon/Jumlah/Harga), ditutup baris "TOTAL KESELURUHAN".
+- Acceptance: tambah 2+ produk beda kategori ke daftar, kirim, 1 pesan WA berisi rincian semua item + total benar.
+- Dependencies: Task 10. Scope: M.
+
+### Phase 4 (FUTURE — butuh sesi perencanaan terpisah, TIDAK dikerjakan sekarang)
+
+**Sistem Akun & Login Pelanggan** — tujuan: filter pelanggan yang niat order (disebut Joe). Pertanyaan yang belum terjawab, perlu dibahas di sesi khusus sebelum ada task/schema:
+
+- Data apa yang diminta saat daftar (nama, HP, email)?
+- Bagaimana "niat order" diukur/di-filter?
+- Tabel `customers` terpisah dari `admin_users` — schema & RLS baru.
+- Migrasi: Daftar Pesanan localStorage (Task 15) di-merge ke akun begitu pelanggan login/daftar.
+- Kaitan dengan rencana bot WA agentic (sudah dicatat sejak PRD awal).
+
 ## Risks and Mitigations
 
 | Risk                                                               | Impact | Mitigation                                                                                                            |

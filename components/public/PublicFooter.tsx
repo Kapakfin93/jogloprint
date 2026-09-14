@@ -10,8 +10,8 @@ export default function PublicFooter({ businessInfo, categories = [] }: PublicFo
   const address =
     businessInfo?.address ||
     "Jl. Diponegoro, Rw. 4, Jogoloyo, Kec. Wonosalam, Kab. Demak, Jateng 59571";
-  const phone = businessInfo?.phone || "0812-3456-7890";
-  const waNumber = businessInfo?.whatsapp_number || "628123456789";
+  const phone = businessInfo?.phone || "0813-9028-6826";
+  const waNumber = businessInfo?.whatsapp_number || "6281390286826";
   const shippingCoverage = businessInfo?.shipping_coverage || [
     "Demak & Sekitarnya: Mranggen, Karangawen, Sayung, Demak Kota",
     "Kudus, Jepara, Semarang: Travel / Pengiriman Semalam",

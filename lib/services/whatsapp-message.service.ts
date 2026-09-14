@@ -117,3 +117,78 @@ export function generateWhatsAppUrl(
   const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
 }
+
+/**
+ * Generate formatted multi-item WhatsApp order message for Task 15
+ */
+export function generateMultiItemOrderMessage(
+  items: Array<{
+    productName: string;
+    variantName: string;
+    addonName: string;
+    addonPrice: number;
+    unitPrice?: number;
+    qty: number;
+    unitLabel?: string | null;
+    totalPerUnit: number;
+    subtotal: number;
+    productUrl: string;
+    pricingModel?: string;
+    lengthCm?: number;
+    widthCm?: number;
+    rawAreaM2?: number;
+    billedAreaM2?: number;
+  }>
+): string {
+  if (items.length === 0) {
+    return "Halo Joglo Print, saya ingin konsultasi pesanan cetak.";
+  }
+
+  const grandTotal = items.reduce((sum, it) => sum + it.subtotal, 0);
+  const lines: string[] = [
+    `Halo Joglo Print, saya ingin memesan *${items.length} item* produk berikut:`,
+    "",
+  ];
+
+  items.forEach((item, idx) => {
+    const isArea = item.pricingModel === "area" && item.lengthCm && item.widthCm;
+    const isMeterLari = item.pricingModel === "meter_lari";
+    const safeUnit = item.unitLabel?.trim() || (isArea ? "m²" : isMeterLari ? "meter" : "lembar");
+    const addonPriceText =
+      item.addonPrice === 0 ? "Tanpa tambahan" : `+${formatCurrency(item.addonPrice)}`;
+
+    lines.push(`*ITEM #${idx + 1}: ${item.productName}*`);
+
+    if (isArea) {
+      const areaStr = item.billedAreaM2 && item.billedAreaM2 !== item.rawAreaM2
+        ? `${item.rawAreaM2?.toFixed(2)} m² (Min ${item.billedAreaM2.toFixed(1)} m²)`
+        : `${item.rawAreaM2?.toFixed(2)} m²`;
+      lines.push(`• Ukuran: ${item.lengthCm}cm x ${item.widthCm}cm (${areaStr})`);
+      lines.push(`• Finishing: ${item.variantName}`);
+      lines.push(`• Opsi: ${item.addonName} (${addonPriceText})`);
+      lines.push(`• Jumlah: ${item.qty} pcs`);
+    } else if (isMeterLari) {
+      lines.push(`• Bahan/Lebar: ${item.variantName}`);
+      lines.push(`• Finishing: ${item.addonName} (${addonPriceText})`);
+      lines.push(`• Panjang: ${item.qty} meter`);
+    } else {
+      lines.push(`• Finishing/Varian: ${item.variantName}`);
+      lines.push(`• Laminasi/Addon: ${item.addonName} (${addonPriceText})`);
+      lines.push(`• Jumlah: ${item.qty} ${safeUnit}`);
+    }
+
+    lines.push(`• Subtotal: ${formatCurrency(item.subtotal)}`);
+    lines.push(`• Link: ${item.productUrl}`);
+    lines.push("------------------------------------");
+  });
+
+  lines.push(
+    `*TOTAL KESELURUHAN (${items.length} ITEM): ${formatCurrency(grandTotal)}*`,
+    "====================================",
+    "",
+    "Mohon konfirmasi ketersediaan & total rincian order ini. Terima kasih!"
+  );
+
+  return lines.join("\n");
+}
+

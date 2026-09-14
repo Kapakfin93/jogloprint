@@ -7,8 +7,8 @@ interface PublicHeaderProps {
 }
 
 export default function PublicHeader({ businessInfo, categories = [] }: PublicHeaderProps) {
-  const phone = businessInfo?.phone || "0812-3456-7890";
-  const waNumber = businessInfo?.whatsapp_number || "628123456789";
+  const phone = businessInfo?.phone || "0813-9028-6826";
+  const waNumber = businessInfo?.whatsapp_number || "6281390286826";
   const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent("Halo Joglo Print, saya mau tanya order cetak...")}`;
 
   return (

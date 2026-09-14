@@ -2,42 +2,56 @@ interface WhatsAppCTAProps {
   readonly whatsappUrl: string;
   readonly whatsappNumber?: string;
   readonly productName: string;
+  readonly onAddToOrderList?: () => void;
+  readonly isAddedSuccess?: boolean;
 }
 
 export default function WhatsAppCTA({
   whatsappUrl,
-  whatsappNumber = "628123456789",
+  whatsappNumber = "6281390286826",
   productName,
+  onAddToOrderList,
+  isAddedSuccess = false,
 }: WhatsAppCTAProps) {
   const askYieldMessage = `Halo Joglo Print, saya mau tanya estimasi isi per lembar untuk produk ${productName}...`;
   const askYieldUrl = `https://wa.me/${whatsappNumber.replace(/\D/g, "")}?text=${encodeURIComponent(askYieldMessage)}`;
 
   return (
     <div className="flex flex-col gap-3 pt-2">
-      {/* Primary WhatsApp Button */}
-      <a
-        href={whatsappUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 px-6 rounded-2xl flex items-center justify-between shadow-lg shadow-emerald-900/10 transition-all transform hover:-translate-y-0.5 active:translate-y-0 group"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
-            💬
-          </div>
-          <div className="flex flex-col text-left">
-            <span className="text-base sm:text-lg font-black leading-tight">
-              Pesan via WhatsApp Sekarang
+      {/* Dual Order Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Secondary Action: Add to Multi-Item List */}
+        {onAddToOrderList && (
+          <button
+            type="button"
+            onClick={onAddToOrderList}
+            className={`w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 font-bold text-sm border-2 transition-all transform active:scale-98 cursor-pointer ${
+              isAddedSuccess
+                ? "bg-emerald-50 text-emerald-700 border-emerald-500 shadow-sm"
+                : "bg-white hover:bg-amber-50/50 text-primary border-primary shadow-xs hover:shadow-md"
+            }`}
+          >
+            <span className="text-xl">{isAddedSuccess ? "✓" : "📋"}</span>
+            <span>
+              {isAddedSuccess ? "Berhasil Ditambahkan!" : "+ Tambah ke Daftar Pesanan"}
             </span>
-            <span className="text-xs text-emerald-100 opacity-90 leading-tight mt-0.5">
-              Format rincian pesanan otomatis terisi ke chat operator
-            </span>
-          </div>
-        </div>
-        <span className="text-xl font-bold group-hover:translate-x-1 transition-transform">
-          →
-        </span>
-      </a>
+          </button>
+        )}
+
+        {/* Primary Action: Direct WhatsApp Order */}
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 shadow-md shadow-emerald-900/10 transition-all transform active:scale-98 group font-bold text-sm ${
+            onAddToOrderList ? "" : "md:col-span-2"
+          }`}
+        >
+          <span className="text-xl group-hover:scale-110 transition-transform">💬</span>
+          <span>Pesan Langsung via WhatsApp</span>
+          <span className="text-base group-hover:translate-x-0.5 transition-transform">→</span>
+        </a>
+      </div>
 
       {/* Secondary Quick Action & Workshop Note */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

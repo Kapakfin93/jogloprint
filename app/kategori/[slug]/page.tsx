@@ -27,7 +27,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   }
 
   const { category, products } = data;
-  const waNumber = businessInfo?.whatsapp_number || "628123456789";
+  const waNumber = businessInfo?.whatsapp_number || "6281390286826";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between">

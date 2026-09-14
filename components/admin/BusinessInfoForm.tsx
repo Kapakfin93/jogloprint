@@ -33,9 +33,9 @@ export default function BusinessInfoForm({ initialData }: BusinessInfoFormProps)
   const [city, setCity] = useState(initialData.city || "Demak");
   const [postalCode, setPostalCode] = useState(initialData.postal_code || "59571");
   const [whatsappNumber, setWhatsappNumber] = useState(
-    initialData.whatsapp_number || "628123456789"
+    initialData.whatsapp_number || "6281390286826"
   );
-  const [phone, setPhone] = useState(initialData.phone || "0812-3456-7890");
+  const [phone, setPhone] = useState(initialData.phone || "0813-9028-6826");
   const [email, setEmail] = useState(initialData.email || "halo@jogloprint.id");
   const [mapsUrl, setMapsUrl] = useState(initialData.google_maps_url || "");
 
@@ -148,7 +148,7 @@ export default function BusinessInfoForm({ initialData }: BusinessInfoFormProps)
               id="whatsapp-number-input"
               type="text"
               required
-              placeholder="Contoh: 628123456789"
+              placeholder="Contoh: 6281390286826"
               value={whatsappNumber}
               onChange={(e) => setWhatsappNumber(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
@@ -161,7 +161,7 @@ export default function BusinessInfoForm({ initialData }: BusinessInfoFormProps)
             <input
               id="phone-input"
               type="text"
-              placeholder="Contoh: 0812-3456-7890"
+              placeholder="Contoh: 0813-9028-6826"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"

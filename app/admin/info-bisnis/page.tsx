@@ -15,8 +15,8 @@ export default async function AdminBusinessInfoPage() {
     address: "Jl. Diponegoro, Rw. 4, Jogoloyo, Kec. Wonosalam, Kab. Demak, Jateng 59571",
     city: "Demak",
     postal_code: "59571",
-    whatsapp_number: "628123456789",
-    phone: "0812-3456-7890",
+    whatsapp_number: "6281390286826",
+    phone: "0813-9028-6826",
     email: "halo@jogloprint.id",
     opening_hours: {
       Senin: "08:00 - 02:00 WIB",
