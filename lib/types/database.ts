@@ -15,6 +15,18 @@ export interface Category {
   description: string | null;
   pricing_engine: PricingEngine;
   cover_image_url: string | null;
+  icon_url: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HomeBanner {
+  id: string;
+  image_url: string;
+  link_url: string;
+  alt_text: string;
   display_order: number;
   is_active: boolean;
   created_at: string;

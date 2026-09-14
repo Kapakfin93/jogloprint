@@ -84,6 +84,7 @@ function CategoryFormContent({
     category?.pricing_engine || "sheet"
   );
   const [coverUrl] = useState(category?.cover_image_url || "");
+  const [iconUrl, setIconUrl] = useState(category?.icon_url || "");
   const [displayOrder, setDisplayOrder] = useState(category?.display_order || 0);
   const [isActive, setIsActive] = useState(category?.is_active ?? true);
   const [loading, setLoading] = useState(false);
@@ -110,6 +111,7 @@ function CategoryFormContent({
     formData.append("description", description.trim());
     formData.append("pricing_engine", pricingEngine);
     formData.append("cover_image_url", coverUrl);
+    formData.append("icon_url", iconUrl);
     formData.append("display_order", displayOrder.toString());
     formData.append("is_active", isActive ? "true" : "false");
 
@@ -232,6 +234,29 @@ function CategoryFormContent({
               placeholder="Deskripsi singkat kategori..."
               className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:border-amber-500 focus:outline-none"
             />
+          </div>
+
+          {/* Icon URL untuk category strip homepage */}
+          <div>
+            <label htmlFor="cat-icon-url" className="block text-xs font-semibold text-slate-700 mb-1">
+              🖼️ URL Ikon Kategori
+              <span className="ml-1 text-[10px] text-slate-400 font-normal">(opsional — gambar PNG 80×80px untuk strip homepage)</span>
+            </label>
+            <input
+              id="cat-icon-url"
+              type="url"
+              value={iconUrl}
+              onChange={(e) => setIconUrl(e.target.value)}
+              placeholder="https://res.cloudinary.com/... atau URL gambar lainnya"
+              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:border-amber-500 focus:outline-none"
+            />
+            {iconUrl && (
+              <div className="mt-2 flex items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={iconUrl} alt="preview ikon" className="w-10 h-10 rounded-lg object-contain border border-slate-200 bg-amber-50" />
+                <span className="text-[10px] text-slate-500">Preview ikon</span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -63,6 +63,7 @@ export async function createCategory(category: {
   description?: string | null;
   pricing_engine?: string;
   cover_image_url?: string | null;
+  icon_url?: string | null;
   display_order?: number;
   is_active?: boolean;
 }): Promise<Category> {
@@ -87,6 +88,7 @@ export async function updateCategory(
     description: string | null;
     pricing_engine: string;
     cover_image_url: string | null;
+    icon_url: string | null;
     display_order: number;
     is_active: boolean;
   }>

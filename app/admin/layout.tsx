@@ -76,6 +76,13 @@ export default async function AdminLayout({
               <span>🏢</span>
               <span>Info Bisnis</span>
             </Link>
+            <Link
+              href="/admin/banners"
+              className="flex items-center gap-2 md:gap-3 px-3 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold text-slate-300 md:text-slate-400 hover:bg-slate-800 hover:text-white transition whitespace-nowrap"
+            >
+              <span>🖼️</span>
+              <span>Banners</span>
+            </Link>
           </nav>
         </div>
 

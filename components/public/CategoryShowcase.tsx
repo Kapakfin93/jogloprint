@@ -37,8 +37,8 @@ export default function CategoryShowcase({ showcase }: CategoryShowcaseProps) {
           </Link>
         </div>
 
-        {/* Product Cards Grid (Top 4 Preview) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+        {/* Product Cards Grid — 2 kolom mobile, 4 kolom desktop */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           {showcase.products.map((prod) => (
             <ProductCard key={prod.id} product={prod} />
           ))}

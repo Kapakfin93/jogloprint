@@ -23,6 +23,7 @@ export async function saveCategoryAction(
     const description = (formData.get("description") as string) || null;
     const pricing_engine = (formData.get("pricing_engine") as string) || "sheet";
     const cover_image_url = (formData.get("cover_image_url") as string) || null;
+    const icon_url = (formData.get("icon_url") as string) || null;
     const display_order = parseInt((formData.get("display_order") as string) || "0", 10);
     const is_active = formData.get("is_active") === "true";
 
@@ -39,6 +40,7 @@ export async function saveCategoryAction(
         description,
         pricing_engine,
         cover_image_url,
+        icon_url,
         display_order,
         is_active,
       });
@@ -49,6 +51,7 @@ export async function saveCategoryAction(
         description,
         pricing_engine,
         cover_image_url,
+        icon_url,
         display_order,
         is_active,
       });
