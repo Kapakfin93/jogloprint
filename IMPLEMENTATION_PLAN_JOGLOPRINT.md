@@ -119,9 +119,19 @@ Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar 
 
 - [ ] Semua acceptance criteria Task 1-13 terpenuhi (menunggu Task 12 & 13)
 - [ ] Domain final dibeli & disambungkan (kalau sudah diputuskan)
+- [x] Siap direplikasi ke kategori Wave 1 lainnya (tinggal input data lewat admin, tanpa kode baru) (VERIFIED)
 
-### Kesiapan Replikasi Wave 1
-- [x] Arsitektur 4 engine pricing, multi-variant, add-on, dan multi-item WA composer sudah terbukti siap direplikasi ke kategori Wave 1 lainnya lewat admin panel. (VERIFIED)
+## Pre-Launch Checklist (cek sebelum situs live publik / repo private)
+
+- [ ] Verifikasi semua gambar produk/kategori pakai komponen `<Image />` Next.js (bukan `<img>` biasa) — auto WebP/AVIF + resize, penting untuk skor Core Web Vitals (LCP).
+- [ ] Task 12 & 13 selesai (metadata dinamis + sitemap) — sudah direncanakan, belum dikerjakan.
+- [ ] Repo GitHub diubah ke Private (lihat "Catatan Repo").
+- [ ] Domain final dibeli & disambungkan.
+
+## Backlog Keamanan (optional, bukan blocker launch)
+
+- **Cloudflare Turnstile + WAF untuk halaman admin**: berguna kalau nanti ada indikasi serangan/brute-force nyata. Belum perlu sekarang (1 admin, RLS+Auth sudah diaudit ketat). Revisit kalau ada sinyal ancaman nyata.
+- **TIDAK diadopsi**: menyembunyikan URL admin (`/admin` → path acak) — ini security-through-obscurity, bukan proteksi nyata. Proteksi sesungguhnya sudah ada lewat Supabase Auth + `admin_users` + RLS yang sudah diaudit tuntas.
 
 ## Catatan Repo
 
@@ -173,7 +183,7 @@ Bukan cart/checkout (tidak ada pembayaran) — cuma cara kumpulkan beberapa prod
 | --- | --- | --- |
 | Deskripsi produk belum siap (bottleneck yang sudah diidentifikasi) | Medium | Build tetap jalan dengan data placeholder; deskripsi dicicil paralel via tracker Notion, tidak jadi blocker Task 1-10 |
 | Logic kalkulasi harga dinamis (Task 9) meleset | High | Wajib verifikasi manual dengan beberapa kombinasi sebelum checkpoint |
-| Domain belum dibeli saat deploy | Low | Deploy dulu ke *.vercel.app, sambungkan domain belakangan tanpa perlu build ulang |
+| Domain belum dibeli saat deploy | Low | Deploy dulu ke \*.vercel.app, sambungkan domain belakangan tanpa perlu build ulang |
 
 ## Open Questions
 
