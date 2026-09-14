@@ -1,19 +1,22 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { useOrderList } from "@/context/OrderListContext";
 import { formatCurrency } from "@/lib/services/pricing.service";
 import {
   generateMultiItemOrderMessage,
   generateWhatsAppUrl,
+  DEFAULT_WHATSAPP_NUMBER,
 } from "@/lib/services/whatsapp-message.service";
+import OrderListDrawerItem from "./OrderListDrawerItem";
 
 interface OrderListDrawerProps {
   readonly whatsappNumber?: string;
 }
 
-export default function OrderListDrawer({ whatsappNumber = "6281390286826" }: OrderListDrawerProps) {
+export default function OrderListDrawer({
+  whatsappNumber = DEFAULT_WHATSAPP_NUMBER,
+}: OrderListDrawerProps) {
   const {
     items,
     removeItem,
@@ -86,66 +89,13 @@ export default function OrderListDrawer({ whatsappNumber = "6281390286826" }: Or
             </div>
           ) : (
             items.map((it, idx) => (
-              <div
+              <OrderListDrawerItem
                 key={it.id}
-                className="p-3.5 rounded-xl border border-slate-200/90 bg-slate-50/50 hover:bg-white transition-colors shadow-2xs space-y-1.5"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">
-                      Item #{idx + 1}
-                    </span>
-                    <Link
-                      href={`/produk/${it.productSlug}`}
-                      onClick={closeDrawer}
-                      className="font-bold text-slate-800 text-sm hover:text-primary transition line-clamp-1"
-                    >
-                      {it.productName}
-                    </Link>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeItem(it.id)}
-                    className="text-slate-400 hover:text-rose-600 p-1 text-sm rounded transition cursor-pointer"
-                    title="Hapus item ini"
-                    aria-label={`Hapus ${it.productName}`}
-                  >
-                    🗑️
-                  </button>
-                </div>
-
-                <div className="text-xs text-slate-600 space-y-0.5 pt-0.5 border-t border-slate-200/60">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Finishing/Varian:</span>
-                    <span className="font-medium text-slate-800">{it.variantName}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Opsi/Addon:</span>
-                    <span className="font-medium text-slate-800">{it.addonName}</span>
-                  </div>
-                  {it.lengthCm && it.widthCm && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Ukuran:</span>
-                      <span className="font-medium text-slate-800">
-                        {it.lengthCm}x{it.widthCm}cm ({it.rawAreaM2?.toFixed(2)}m²)
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Jumlah:</span>
-                    <span className="font-semibold text-slate-800">
-                      {it.qty} {it.unitLabel || "lembar"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pt-1.5 border-t border-slate-200/60 flex items-center justify-between">
-                  <span className="text-xs text-slate-500 font-medium">Subtotal:</span>
-                  <span className="font-bold text-primary text-sm">
-                    {formatCurrency(it.subtotal)}
-                  </span>
-                </div>
-              </div>
+                item={it}
+                index={idx}
+                onRemove={removeItem}
+                onCloseDrawer={closeDrawer}
+              />
             ))
           )}
         </div>

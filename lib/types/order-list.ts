@@ -13,6 +13,7 @@ export interface OrderItem {
   widthCm?: number;
   rawAreaM2?: number;
   billedAreaM2?: number;
+  needsSeam?: boolean;
   totalPerUnit: number;
   subtotal: number;
   productUrl: string;

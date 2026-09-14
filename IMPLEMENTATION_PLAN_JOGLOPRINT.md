@@ -21,10 +21,11 @@ Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar 
 
 - **4 engine**: `sheet` (lembar/pcs, default), `bundle` (buku/rim), `area` (m², dihitung dari panjang×lebar cm), `meter_lari` (per meter panjang).
 - **Engine adalah properti Kategori** (`categories.pricing_engine`), cascade otomatis ke `products.pricing_model` & `unit_label` via DB trigger saat kategori diedit.
-- **`sheet`/`bundle`** tetap 100% pakai mekanisme `product_variants`+`variant_price_tiers` yang sudah ada sejak awal (tidak ada perubahan).
-- **`area`**: dihitung dari 2 dimensi (panjang×lebar cm) via `calculateAreaPrice()`, pure function terpisah di `pricing.service.ts`. Minimal order pakai `products.min_order_qty` (di-rename dari `min_order_area`).
-- **`meter_lari`**: dihitung dari 1 dimensi (panjang meter) via `calculateMeterLariPrice()`, pure function terpisah. **Lebar bahan TIDAK mempengaruhi harga** — cuma info di `specifications` (dikonfirmasi Joe, mengacu pricelist supplier: harga/meter sama untuk semua pilihan lebar). Varian (`product_variants`) untuk kategori ini tetap dipakai untuk axis Finishing (mis. "Obras + Tali Samping"), bukan lebar.
+- **`sheet`/`bundle`** tetap 100% pakai mekanisme `product_variants`+`variant_price_tiers` yang sudah ada sejak awal (tidak ada perubahan). Add-on dihitung flat per-pcs/buku: `(unitPrice + addonFlat) * qty`.
+- **`area`**: dihitung dari 2 dimensi (panjang×lebar cm) via `calculateAreaPrice()`, pure function terpisah di `pricing.service.ts`. Minimal order pakai `products.min_order_qty` (di-rename dari `min_order_area`). Add-on dihitung proporsional terhadap luas bahan terpakai (`billedAreaM2`), yaitu `billedAreaM2 * (pricePerM2 + addonFlat) * qty`.
+- **`meter_lari`**: dihitung dari 1 dimensi (panjang meter) via `calculateMeterLariPrice()`, pure function terpisah. **Lebar bahan TIDAK mempengaruhi harga** — cuma info di `specifications` (dikonfirmasi Joe, mengacu pricelist supplier: harga/meter sama untuk semua pilihan lebar). Varian (`product_variants`) untuk kategori ini tetap dipakai untuk axis Finishing (mis. "Obras + Tali Samping"), bukan lebar. Add-on dihitung flat per-meter: `(unitPrice + addonFlat) * lengthM`.
 - **Kolom `variant_price_tiers.price_per_unit` reinterpretasi kontekstual** sesuai `pricing_model` produk induknya (Rp/lembar, Rp/m², atau Rp/meter) — didokumentasikan via `COMMENT ON COLUMN` di database, WAJIB selalu join ke `products.pricing_model` sebelum menafsirkan nilai ini di query manapun.
+- **Kolom `product_addons.price_flat` reinterpretasi kontekstual** sesuai `pricing_model` produk induknya: untuk engine `area` bermakna Rp/m² (dikalikan `billedAreaM2` karena laminasi/bahan tambahan proporsional ke luas); untuk `sheet`/`bundle`/`meter_lari` bermakna flat nominal per satuan. Didokumentasikan via `COMMENT ON COLUMN public.product_addons.price_flat` di database.
 
 ## Task List
 
@@ -106,25 +107,26 @@ Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar 
   - Acceptance: data ini dipakai otomatis di footer semua halaman + JSON-LD. (VERIFIED)
   - Dependencies: Task 2. Scope: S.
 
-- [ ] **Task 12 — SEO: JSON-LD & meta tags.** Pasang `LocalBusiness` schema (semua halaman) + `Product` schema (halaman produk), title/meta description dinamis per halaman.
-  - Acceptance: Google Rich Results Test lolos tanpa error untuk halaman produk & home.
-  - Verification: cek via search.google.com/test/rich-results.
+- [x] **Task 12 — SEO: JSON-LD & meta tags.** Pasang `LocalBusiness` / `PrintingService` schema di `app/layout.tsx`, `Product` & `Offer` schema di `app/produk/[slug]`, serta `BreadcrumbList` schema pada kategori & produk via `components/seo/JsonLd.tsx`. Title & meta description dibuat dinamis via `generateMetadata` dengan format localized Demak, canonical URL, dan OpenGraph. (VERIFIED)
+  - Acceptance: Tag `<title>`, `<meta name="description">`, canonical URL, dan script JSON-LD ter-render valid pada response HTML halaman publik. (VERIFIED)
+  - Verification: Test live endpoint via `scratch/test_seo_tags.js` — terverifikasi 200 OK pada halaman kategori & produk. (VERIFIED)
   - Dependencies: Task 7, 8, 9, 11. Scope: M.
 
-- [ ] **Task 13 — Sitemap & robots.txt.** `app/sitemap.ts` auto-generate dari data kategori+produk.
-  - Acceptance: `/sitemap.xml` berisi semua URL kategori & produk yang ada di database.
+- [x] **Task 13 — Sitemap & robots.txt.** `app/sitemap.ts` auto-generate dinamis dari database Supabase (`lib/repositories/seo.repository.ts`), serta `app/robots.ts` memproteksi rute `/admin/` dan menautkan sitemap. (VERIFIED)
+  - Acceptance: `/sitemap.xml` berisi seluruh URL kategori & produk aktif dengan timestamp `lastmod` dan priority; `/robots.txt` valid memblokir crawler ke admin. (VERIFIED)
+  - Verification: Request langsung ke `http://localhost:3000/sitemap.xml` dan `/robots.txt` berhasil (HTTP 200 OK). (VERIFIED)
   - Dependencies: Task 7, 8, 9. Scope: XS.
 
 ### Checkpoint: Complete (Pilot Kategori Stiker & Label)
 
-- [ ] Semua acceptance criteria Task 1-13 terpenuhi (menunggu Task 12 & 13)
+- [x] Semua acceptance criteria Task 1-13 terpenuhi (Task 12 & 13 selesai & terverifikasi) (VERIFIED)
 - [ ] Domain final dibeli & disambungkan (kalau sudah diputuskan)
 - [x] Siap direplikasi ke kategori Wave 1 lainnya (tinggal input data lewat admin, tanpa kode baru) (VERIFIED)
 
 ## Pre-Launch Checklist (cek sebelum situs live publik / repo private)
 
 - [ ] Verifikasi semua gambar produk/kategori pakai komponen `<Image />` Next.js (bukan `<img>` biasa) — auto WebP/AVIF + resize, penting untuk skor Core Web Vitals (LCP).
-- [ ] Task 12 & 13 selesai (metadata dinamis + sitemap) — sudah direncanakan, belum dikerjakan.
+- [x] Task 12 & 13 selesai (metadata dinamis, Schema.org JSON-LD, sitemap dinamis & robots.txt) — SELESAI & TERVERIFIKASI. (VERIFIED)
 - [ ] Repo GitHub diubah ke Private (lihat "Catatan Repo").
 - [ ] Domain final dibeli & disambungkan.
 

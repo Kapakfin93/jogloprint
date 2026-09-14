@@ -95,8 +95,8 @@ export function calculateAreaM2(lengthCm: number, widthCm: number): number {
 }
 
 /**
- * Calculate total price for area-based products (Banner, Flexi, Backlite, Spanduk)
- * Formula: max(Area_m2, min_area) * Price/m2 + Addon
+ * Calculate total price for area-based products (Banner, Flexi, Stiker Meteran)
+ * Formula: max(Area_m2, min_area) * (Price/m2 + Addon/m2)
  */
 export function calculateAreaPrice(
   pricePerM2: number,
@@ -116,7 +116,7 @@ export function calculateAreaPrice(
   const safeQty = Math.max(1, qty);
   const rawAreaM2 = calculateAreaM2(lengthCm, widthCm);
   const billedAreaM2 = rawAreaM2 > 0 ? Math.max(rawAreaM2, minAreaM2) : minAreaM2;
-  const pricePerPcs = (billedAreaM2 * pricePerM2) + addonFlat;
+  const pricePerPcs = Math.round(billedAreaM2 * (pricePerM2 + addonFlat));
   const grandTotal = Math.round(pricePerPcs * safeQty);
 
   return {

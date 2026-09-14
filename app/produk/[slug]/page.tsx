@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProductDetailPageData } from "@/lib/repositories/product-detail.repository";
@@ -9,11 +10,44 @@ import ProductDetailClient from "@/components/public/ProductDetailClient";
 import ProductYieldGuide from "@/components/public/ProductYieldGuide";
 import ProductSpecs from "@/components/public/ProductSpecs";
 import PublicFooter from "@/components/public/PublicFooter";
+import { BreadcrumbJsonLd, ProductJsonLd } from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
 
 interface ProductDetailPageProps {
   readonly params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: ProductDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const data = await getProductDetailPageData(slug);
+  if (!data) return {};
+
+  const { product, category, images, lowest_price } = data;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jogloweb.vercel.app";
+  const priceText = lowest_price ? `Mulai Rp ${lowest_price.toLocaleString("id-ID")}` : "Murah & Berkualitas";
+  const prefix = /^(cetak|print)/i.test(product.name.trim()) ? "" : "Cetak ";
+  const title = `${prefix}${product.name} Demak — ${priceText}`;
+  const description = product.description
+    ? `${product.description.slice(0, 145)}...`
+    : `Pesan cetak ${product.name} (${category.name}) di Joglo Print Demak. Pilihan bahan lengkap, pengerjaan cepat, dan harga grosir terbaik.`;
+
+  const primaryImage = images.find((img) => img.is_primary)?.image_url || images[0]?.image_url;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `${siteUrl}/produk/${slug}`,
+    },
+    openGraph: {
+      title: `${prefix}${product.name} | Joglo Print Demak`,
+      description,
+      url: `${siteUrl}/produk/${slug}`,
+      type: "website",
+      ...(primaryImage ? { images: [{ url: primaryImage }] } : {}),
+    },
+  };
 }
 
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
@@ -30,9 +64,26 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
   }
 
   const { product, category, images, variants, lowest_price } = data;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jogloweb.vercel.app";
+  const primaryImage = images.find((img) => img.is_primary)?.image_url || images[0]?.image_url;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Beranda", url: siteUrl },
+          { name: category.name, url: `${siteUrl}/kategori/${category.slug}` },
+          { name: product.name, url: `${siteUrl}/produk/${product.slug}` },
+        ]}
+      />
+      <ProductJsonLd
+        name={product.name}
+        description={product.description}
+        url={`${siteUrl}/produk/${product.slug}`}
+        imageUrl={primaryImage}
+        price={lowest_price}
+        categoryName={category.name}
+      />
       <div>
         {/* Header */}
         <PublicHeader businessInfo={businessInfo} categories={allCategories} />
@@ -87,6 +138,11 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   productSlug={product.slug}
                   pricingModel={product.pricing_model}
                   minOrderQty={product.min_order_qty}
+                  maxRollWidthCm={
+                    category.slug === "stiker-per-meter" || category.slug === "stiker-meteran" || category.slug === "indoor-poster-display"
+                      ? 150
+                      : null
+                  }
                   variants={variants}
                   addons={data.addons}
                   unitLabel={product.unit_label}

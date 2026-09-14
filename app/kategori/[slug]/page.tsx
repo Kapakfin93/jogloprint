@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getCategoryPageData } from "@/lib/repositories/catalog.repository";
@@ -6,11 +7,39 @@ import { getBusinessInfo } from "@/lib/repositories/business-info.repository";
 import PublicHeader from "@/components/public/PublicHeader";
 import ProductCard from "@/components/public/ProductCard";
 import PublicFooter from "@/components/public/PublicFooter";
+import { BreadcrumbJsonLd } from "@/components/seo/JsonLd";
 
 export const dynamic = "force-dynamic";
 
 interface CategoryPageProps {
   readonly params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const data = await getCategoryPageData(slug);
+  if (!data) return {};
+
+  const { category } = data;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jogloweb.vercel.app";
+  const title = `${category.name} Demak — Percetakan Murah & Cepat`;
+  const description = category.description
+    ? `${category.description.slice(0, 145)}...`
+    : `Layanan cetak ${category.name} murah, cepat, dan berkualitas di Demak. Pesan online via WhatsApp di Joglo Print.`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `${siteUrl}/kategori/${slug}`,
+    },
+    openGraph: {
+      title: `${category.name} Demak | Joglo Print`,
+      description,
+      url: `${siteUrl}/kategori/${slug}`,
+      type: "website",
+    },
+  };
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
@@ -28,9 +57,17 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   const { category, products } = data;
   const waNumber = businessInfo?.whatsapp_number || "6281390286826";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jogloweb.vercel.app";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Beranda", url: siteUrl },
+          { name: "Kategori", url: `${siteUrl}/#katalog-produk` },
+          { name: category.name, url: `${siteUrl}/kategori/${slug}` },
+        ]}
+      />
       <div>
         {/* Header */}
         <PublicHeader businessInfo={businessInfo} categories={allCategories} />

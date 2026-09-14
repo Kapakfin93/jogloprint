@@ -1,29 +1,41 @@
 interface QuantityInputProps {
   readonly qty: number;
   readonly unitLabel?: string | null;
+  readonly minQty?: number | null;
+  readonly step?: number | null;
   readonly onChangeQty: (newQty: number) => void;
 }
 
 export default function QuantityInput({
   qty,
   unitLabel = "lembar",
+  minQty = 1,
+  step = 1,
   onChangeQty,
 }: QuantityInputProps) {
   const safeUnit = unitLabel || "lembar";
-  const presets = [5, 10, 50, 100];
+  const effectiveMin = Math.max(1, minQty || 1);
+  const effectiveStep = Math.max(1, step || 1);
+
+  let presets = [5, 10, 50, 100];
+  if (effectiveMin >= 50) {
+    presets = [50, 100, 200, 500];
+  } else if (effectiveMin >= 25) {
+    presets = [25, 50, 100, 250];
+  }
 
   function handleDecrement() {
-    onChangeQty(Math.max(1, qty - 1));
+    onChangeQty(Math.max(effectiveMin, qty - effectiveStep));
   }
 
   function handleIncrement() {
-    onChangeQty(qty + 1);
+    onChangeQty(qty + effectiveStep);
   }
 
   function handleManualChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = Number.parseInt(e.target.value, 10);
-    if (Number.isNaN(val) || val < 1) {
-      onChangeQty(1);
+    if (Number.isNaN(val) || val < effectiveMin) {
+      onChangeQty(effectiveMin);
     } else {
       onChangeQty(val);
     }
@@ -47,7 +59,7 @@ export default function QuantityInput({
           <button
             type="button"
             onClick={handleDecrement}
-            disabled={qty <= 1}
+            disabled={qty <= effectiveMin}
             aria-label="Kurangi kuantitas"
             className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-lg flex items-center justify-center transition disabled:opacity-40"
           >
@@ -56,7 +68,8 @@ export default function QuantityInput({
           <input
             id="quantity-input"
             type="number"
-            min={1}
+            min={effectiveMin}
+            step={effectiveStep}
             value={qty}
             onChange={handleManualChange}
             className="w-20 text-center font-black text-lg text-slate-900 focus:outline-none bg-transparent"

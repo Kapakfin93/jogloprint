@@ -3,16 +3,12 @@
 import { useState } from "react";
 import { VariantDetailItem } from "@/lib/repositories/product-detail.repository";
 import { ProductAddon, PricingEngine } from "@/lib/types/database";
-import {
-  findApplicableTier,
-  calculateTotalPrice,
-  calculateAreaPrice,
-  formatCurrency,
-} from "@/lib/services/pricing.service";
+import { formatCurrency } from "@/lib/services/pricing.service";
 import {
   generateOrderMessage,
   generateWhatsAppUrl,
 } from "@/lib/services/whatsapp-message.service";
+import { useProductPricing } from "@/lib/hooks/useProductPricing";
 import { useOrderList } from "@/context/OrderListContext";
 import VariantSelector from "./VariantSelector";
 import AddonSelector from "./AddonSelector";
@@ -25,10 +21,11 @@ import WhatsAppCTA from "./WhatsAppCTA";
 interface ProductDetailClientProps {
   readonly productName: string;
   readonly productSlug: string;
-  readonly pricingModel?: PricingEngine | string;
+  readonly pricingModel?: PricingEngine;
   readonly minOrderQty?: number | null;
-  readonly variants: VariantDetailItem[];
-  readonly addons?: ProductAddon[];
+  readonly maxRollWidthCm?: number | null;
+  readonly variants: readonly VariantDetailItem[];
+  readonly addons?: readonly ProductAddon[];
   readonly unitLabel?: string | null;
   readonly lowestPrice: number | null;
   readonly whatsappNumber?: string | null;
@@ -39,6 +36,7 @@ export default function ProductDetailClient({
   productSlug,
   pricingModel = "sheet",
   minOrderQty = 1.0,
+  maxRollWidthCm,
   variants,
   addons = [],
   unitLabel,
@@ -48,62 +46,30 @@ export default function ProductDetailClient({
   const { addItem } = useOrderList();
   const [isAddedSuccess, setIsAddedSuccess] = useState(false);
 
-  const isArea = pricingModel === "area";
-  const isMeterLari = pricingModel === "meter_lari";
-  const defaultVariant = variants.find((v) => v.is_default) || variants[0] || null;
-  const [selectedVariantId, setSelectedVariantId] = useState<string>(
-    defaultVariant?.id || ""
-  );
+  const defaultVariantId = variants.find((v) => v.is_default)?.id || variants[0]?.id || "";
+  const [selectedVariantId, setSelectedVariantId] = useState<string>(defaultVariantId);
 
-  const defaultAddon = addons.find((a) => a.is_default) || addons[0] || null;
-  const [selectedAddonId, setSelectedAddonId] = useState<string>(
-    defaultAddon?.id || ""
-  );
+  const defaultAddonId = addons.find((a) => a.is_default)?.id || addons[0]?.id || "";
+  const [selectedAddonId, setSelectedAddonId] = useState<string>(defaultAddonId);
 
-  const [qty, setQty] = useState<number>(1);
+  const [qty, setQty] = useState<number>(minOrderQty || 1);
   const [lengthCm, setLengthCm] = useState<number>(150);
   const [widthCm, setWidthCm] = useState<number>(100);
 
-  const selectedVariant = variants.find((v) => v.id === selectedVariantId) || defaultVariant;
-  const selectedAddon = addons.find((a) => a.id === selectedAddonId) || defaultAddon;
-  
-  let defaultUnit = "lembar";
-  if (isArea) defaultUnit = "m²";
-  else if (isMeterLari) defaultUnit = "meter";
-  const safeUnit = unitLabel || defaultUnit;
+  const pricing = useProductPricing({
+    pricingModel,
+    variants,
+    addons,
+    selectedVariantId,
+    selectedAddonId,
+    qty,
+    lengthCm,
+    widthCm,
+    minOrderQty: minOrderQty || 1.0,
+    maxRollWidthCm,
+    unitLabel,
+  });
 
-  // Tier lookup based on qty (panjang meter / kuantitas lembar)
-  const applicableTier = findApplicableTier(selectedVariant?.price_tiers || [], qty);
-  const unitPrice = applicableTier?.price_per_unit || 0;
-  const addonFlat = selectedAddon?.price_flat || 0;
-
-  // Calculation dispatch: Area vs Standard Unit (Sheet / Meter Lari / Bundle)
-  const areaCalc = isArea
-    ? calculateAreaPrice(unitPrice, addonFlat, lengthCm, widthCm, qty, minOrderQty || 1.0)
-    : null;
-
-  const standardCalc = !isArea
-    ? calculateTotalPrice(unitPrice, addonFlat, qty)
-    : null;
-
-  let calcUnitPrice = unitPrice;
-  let calcAddonFlat = addonFlat;
-  let totalPerUnit = 0;
-  let grandTotal = 0;
-
-  if (isArea && areaCalc) {
-    calcUnitPrice = areaCalc.pricePerM2;
-    calcAddonFlat = areaCalc.addonFlat;
-    totalPerUnit = areaCalc.pricePerPcs;
-    grandTotal = areaCalc.grandTotal;
-  } else if (standardCalc) {
-    calcUnitPrice = standardCalc.unitPrice;
-    calcAddonFlat = standardCalc.addonFlat;
-    totalPerUnit = standardCalc.totalPerUnit;
-    grandTotal = standardCalc.grandTotal;
-  }
-
-  // WhatsApp structured order message generation
   const siteBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jogloweb.vercel.app";
   const productUrl =
     typeof window !== "undefined" && window.location.href
@@ -112,52 +78,44 @@ export default function ProductDetailClient({
 
   const orderMessage = generateOrderMessage({
     productName,
-    variantName: selectedVariant?.variant_name || "-",
-    addonName: selectedAddon?.name || "Standar / Tanpa Tambahan",
-    addonPrice: addonFlat,
-    unitPrice,
+    variantName: pricing.selectedVariant?.variant_name || "-",
+    addonName: pricing.selectedAddon?.name || "Standar / Tanpa Tambahan",
+    addonPrice: pricing.addonFlat,
+    unitPrice: pricing.unitPrice,
     qty,
-    unitLabel: safeUnit,
-    totalPerUnit,
-    grandTotal,
+    unitLabel: pricing.safeUnit,
+    totalPerUnit: pricing.totalPerUnit,
+    grandTotal: pricing.grandTotal,
     productUrl,
     pricingModel,
-    lengthCm: isArea ? lengthCm : undefined,
-    widthCm: isArea ? widthCm : undefined,
-    rawAreaM2: isArea ? areaCalc?.rawAreaM2 : undefined,
-    billedAreaM2: isArea ? areaCalc?.billedAreaM2 : undefined,
+    lengthCm: pricing.isArea ? lengthCm : undefined,
+    widthCm: pricing.isArea ? widthCm : undefined,
+    rawAreaM2: pricing.isArea ? pricing.areaCalc?.rawAreaM2 : undefined,
+    billedAreaM2: pricing.isArea ? pricing.areaCalc?.billedAreaM2 : undefined,
+    needsSeam: pricing.needsSeam,
   });
 
   const waNumber = whatsappNumber || "6281390286826";
   const whatsappUrl = generateWhatsAppUrl(waNumber, orderMessage);
 
-  let bannerTitle = "Harga Grosir Fleksibel";
-  let bannerSub = "Tersedia berbagai pilihan kuantitas";
-  if (isArea) {
-    bannerTitle = "Harga Banner / Meter Persegi (m²)";
-    bannerSub = "Hitungan otomatis per luas area";
-  } else if (isMeterLari) {
-    bannerTitle = "Harga Cetak / Meter Lari (m)";
-    bannerSub = "Hitungan otomatis per panjang meter";
-  }
-
   function handleAddToOrderList() {
     addItem({
       productName,
       productSlug,
-      variantName: selectedVariant?.variant_name || "-",
-      addonName: selectedAddon?.name || "Standar / Tanpa Tambahan",
-      addonPrice: addonFlat,
-      unitPrice: calcUnitPrice,
+      variantName: pricing.selectedVariant?.variant_name || "-",
+      addonName: pricing.selectedAddon?.name || "Standar / Tanpa Tambahan",
+      addonPrice: pricing.addonFlat,
+      unitPrice: pricing.calcUnitPrice,
       qty,
-      unitLabel: isArea ? "pcs" : safeUnit,
-      pricingModel: typeof pricingModel === "string" ? pricingModel : undefined,
-      lengthCm: isArea ? lengthCm : undefined,
-      widthCm: isArea ? widthCm : undefined,
-      rawAreaM2: isArea ? areaCalc?.rawAreaM2 : undefined,
-      billedAreaM2: isArea ? areaCalc?.billedAreaM2 : undefined,
-      totalPerUnit,
-      subtotal: grandTotal,
+      unitLabel: pricing.isArea ? "pcs" : pricing.safeUnit,
+      pricingModel,
+      lengthCm: pricing.isArea ? lengthCm : undefined,
+      widthCm: pricing.isArea ? widthCm : undefined,
+      rawAreaM2: pricing.isArea ? pricing.areaCalc?.rawAreaM2 : undefined,
+      billedAreaM2: pricing.isArea ? pricing.areaCalc?.billedAreaM2 : undefined,
+      needsSeam: pricing.isArea ? pricing.needsSeam : undefined,
+      totalPerUnit: pricing.totalPerUnit,
+      subtotal: pricing.grandTotal,
       productUrl,
     });
     setIsAddedSuccess(true);
@@ -170,7 +128,7 @@ export default function ProductDetailClient({
       <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex flex-col">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-            {bannerTitle}
+            {pricing.bannerTitle}
           </span>
           <div className="flex items-baseline gap-2 mt-0.5">
             <span className="text-xs text-slate-500 font-medium">Mulai dari</span>
@@ -178,7 +136,7 @@ export default function ProductDetailClient({
               {lowestPrice !== null ? formatCurrency(lowestPrice) : "Hubungi CS"}
             </span>
             <span className="text-xs font-bold text-slate-600">
-              / {safeUnit}
+              / {pricing.safeUnit}
             </span>
           </div>
         </div>
@@ -188,37 +146,38 @@ export default function ProductDetailClient({
             ✓ Sudah Termasuk Cetak & Bahan
           </span>
           <span className="text-[11px] text-slate-500 mt-1">
-            {bannerSub}
+            {pricing.bannerSub}
           </span>
         </div>
       </div>
 
-      {/* 1. Variant Selector (Lebar Bahan untuk Meter Lari / Finishing untuk Sheet & Area) */}
+      {/* 1. Variant Selector */}
       <VariantSelector
-        variants={variants}
+        variants={variants as VariantDetailItem[]}
         selectedVariantId={selectedVariantId}
         onSelectVariant={setSelectedVariantId}
-        title={isMeterLari ? "1. Pilih Lebar Bahan" : "1. Jenis Finishing / Pilihan Varian"}
+        title={pricing.isMeterLari ? "1. Pilih Lebar Bahan" : "1. Jenis Finishing / Pilihan Varian"}
       />
 
-      {/* 2. Add-on Selector (Finishing Jahit untuk Meter Lari / Laminasi untuk Sheet) */}
+      {/* 2. Add-on Selector */}
       {addons.length > 0 && (
         <AddonSelector
-          addons={addons}
+          addons={addons as ProductAddon[]}
           selectedAddonId={selectedAddonId}
-          unitLabel={isArea ? "pcs" : safeUnit}
+          unitLabel={pricing.isArea ? "pcs" : pricing.safeUnit}
           onSelectAddon={setSelectedAddonId}
-          title={isMeterLari ? "2. Jenis Finishing / Jahitan" : "2. Lapisan Tambahan / Add-on"}
+          title={pricing.isMeterLari ? "2. Jenis Finishing / Jahitan" : "2. Lapisan Tambahan / Add-on"}
         />
       )}
 
-      {/* 3. Input Model: Area (Panjang x Lebar) vs Standard Qty (Lembar / Meter / Buku) */}
-      {isArea ? (
+      {/* 3. Input Model: Area (Panjang x Lebar) vs Standard Qty */}
+      {pricing.isArea ? (
         <DimensionInput
           lengthCm={lengthCm}
           widthCm={widthCm}
           qty={qty}
           minAreaM2={minOrderQty || 1.0}
+          maxRollWidthCm={maxRollWidthCm ?? undefined}
           onChangeLength={setLengthCm}
           onChangeWidth={setWidthCm}
           onChangeQty={setQty}
@@ -226,20 +185,22 @@ export default function ProductDetailClient({
       ) : (
         <QuantityInput
           qty={qty}
-          unitLabel={safeUnit}
+          unitLabel={pricing.safeUnit}
+          minQty={minOrderQty}
+          step={productSlug === "id-card-pvc-custom" ? 5 : 1}
           onChangeQty={setQty}
         />
       )}
 
       {/* 4. Live Order Price Calculation Summary */}
       <OrderPriceSummary
-        unitPrice={calcUnitPrice}
-        addonFlat={calcAddonFlat}
+        unitPrice={pricing.calcUnitPrice}
+        addonFlat={pricing.calcAddonFlat}
         qty={qty}
-        totalPerUnit={totalPerUnit}
-        grandTotal={grandTotal}
-        unitLabel={isArea ? "pcs" : safeUnit}
-        leadTimeDays={applicableTier?.lead_time_days}
+        totalPerUnit={pricing.totalPerUnit}
+        grandTotal={pricing.grandTotal}
+        unitLabel={pricing.isArea ? "pcs" : pricing.safeUnit}
+        leadTimeDays={pricing.applicableTier?.lead_time_days}
       />
 
       {/* 5. WhatsApp Structured CTA Action */}
@@ -252,10 +213,10 @@ export default function ProductDetailClient({
       />
 
       {/* 6. Reactive Tiered Volume Pricing Table */}
-      {selectedVariant && (
+      {pricing.selectedVariant && (
         <VariantPriceTable
-          tiers={selectedVariant.price_tiers}
-          unitLabel={safeUnit}
+          tiers={pricing.selectedVariant.price_tiers}
+          unitLabel={pricing.safeUnit}
         />
       )}
     </div>

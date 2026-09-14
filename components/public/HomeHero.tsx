@@ -33,7 +33,7 @@ export default function HomeHero({ businessInfo, banners }: HomeHeroProps) {
     return (
       <section className="w-full pt-2 pb-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="relative rounded-2xl overflow-hidden shadow-lg bg-slate-900 aspect-[2/1] sm:aspect-[3/1] lg:aspect-[4/1]">
+          <div className="relative rounded-2xl overflow-hidden shadow-lg bg-slate-900 aspect-2/1 sm:aspect-3/1 lg:aspect-4/1">
             {/* Slides */}
             {activeBanners.map((b, i) => (
               <div
@@ -41,6 +41,7 @@ export default function HomeHero({ businessInfo, banners }: HomeHeroProps) {
                 className={`absolute inset-0 transition-opacity duration-700 ${i === current ? "opacity-100" : "opacity-0"}`}
               >
                 <Link href={b.link_url || "/"}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={b.image_url}
                     alt={b.alt_text}
@@ -57,9 +58,9 @@ export default function HomeHero({ businessInfo, banners }: HomeHeroProps) {
                 <button onClick={next} aria-label="Next" className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-8 h-8 flex items-center justify-center transition z-10 text-xl font-bold leading-none">&#8250;</button>
                 {/* Dots */}
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-                  {activeBanners.map((_, i) => (
+                  {activeBanners.map((b, i) => (
                     <button
-                      key={i}
+                      key={b.id}
                       onClick={() => setCurrent(i)}
                       className={`w-2 h-2 rounded-full transition-all ${i === current ? "bg-white w-5" : "bg-white/50"}`}
                       aria-label={`Slide ${i + 1}`}
