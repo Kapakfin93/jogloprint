@@ -26,95 +26,84 @@ Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar 
 - **`meter_lari`**: dihitung dari 1 dimensi (panjang meter) via `calculateMeterLariPrice()`, pure function terpisah. **Lebar bahan TIDAK mempengaruhi harga** — cuma info di `specifications` (dikonfirmasi Joe, mengacu pricelist supplier: harga/meter sama untuk semua pilihan lebar). Varian (`product_variants`) untuk kategori ini tetap dipakai untuk axis Finishing (mis. "Obras + Tali Samping"), bukan lebar.
 - **Kolom `variant_price_tiers.price_per_unit` reinterpretasi kontekstual** sesuai `pricing_model` produk induknya (Rp/lembar, Rp/m², atau Rp/meter) — didokumentasikan via `COMMENT ON COLUMN` di database, WAJIB selalu join ke `products.pricing_model` sebelum menafsirkan nilai ini di query manapun.
 
-### Addendum: Multi-Engine Pricing (diputuskan setelah audit arsitektur, menyusul Task 6)
-
-Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar (stiker). Banner dihitung per m², Spanduk Kain per meter lari. Keputusan setelah audit:
-
-- **4 engine**: `sheet` (lembar/pcs, default), `bundle` (buku/rim), `area` (m², dihitung dari panjang×lebar cm), `meter_lari` (per meter panjang).
-- **Engine adalah properti Kategori** (`categories.pricing_engine`), cascade otomatis ke `products.pricing_model` & `unit_label` via DB trigger saat kategori diedit.
-- **`sheet`/`bundle`** tetap 100% pakai mekanisme `product_variants`+`variant_price_tiers` yang sudah ada sejak awal (tidak ada perubahan).
-- **`area`**: dihitung dari 2 dimensi (panjang×lebar cm) via `calculateAreaPrice()`, pure function terpisah di `pricing.service.ts`. Minimal order pakai `products.min_order_qty` (di-rename dari `min_order_area`).
-- **`meter_lari`**: dihitung dari 1 dimensi (panjang meter) via `calculateMeterLariPrice()`, pure function terpisah. **Lebar bahan TIDAK mempengaruhi harga** — cuma info di `specifications` (dikonfirmasi Joe, mengacu pricelist supplier: harga/meter sama untuk semua pilihan lebar). Varian (`product_variants`) untuk kategori ini tetap dipakai untuk axis Finishing (mis. "Obras + Tali Samping"), bukan lebar.
-- **Kolom `variant_price_tiers.price_per_unit` reinterpretasi kontekstual** sesuai `pricing_model` produk induknya (Rp/lembar, Rp/m², atau Rp/meter) — didokumentasikan via `COMMENT ON COLUMN` di database, WAJIB selalu join ke `products.pricing_model` sebelum menafsirkan nilai ini di query manapun.
-
 ## Task List
 
 ### Phase 1: Foundation
 
-- [ ] **Task 1 — Setup Supabase project + schema.** Buat project Supabase baru. Buat tabel: `categories`, `products`, `product_variants`, `variant_price_tiers`, `product_addons`, `product_images`, `business_info`. Aktifkan RLS: publik read-only, write hanya service role/owner.
-  - Acceptance: semua tabel dibuat, RLS policy publik READ berhasil, WRITE dari anon key ditolak.
-  - Verification: test manual via Supabase SQL editor + coba insert pakai anon key (harus gagal).
+- [x] **Task 1 — Setup Supabase project + schema.** Buat project Supabase baru. Buat tabel: `categories`, `products`, `product_variants`, `variant_price_tiers`, `product_addons`, `product_images`, `business_info`. Aktifkan RLS: publik read-only, write hanya service role/owner.
+  - Acceptance: semua tabel dibuat, RLS policy publik READ berhasil, WRITE dari anon key ditolak. (VERIFIED)
+  - Verification: test manual via Supabase SQL editor + coba insert pakai anon key (harus gagal). (VERIFIED)
   - Dependencies: None. Scope: S.
 
-- [ ] **Task 2 — Setup Next.js repo skeleton.** Init project Next.js App Router + Tailwind, koneksi ke Supabase (client & server helper di `lib/supabase/`), koneksi Cloudinary (upload helper), deploy kosong pertama ke Vercel.
-  - Acceptance: `npm run dev` jalan, halaman kosong ter-deploy ke Vercel URL sementara, env var Supabase & Cloudinary terbaca.
-  - Verification: `npm run build` sukses; buka URL Vercel, tidak error.
+- [x] **Task 2 — Setup Next.js repo skeleton.** Init project Next.js App Router + Tailwind, koneksi ke Supabase (client & server helper di `lib/supabase/`), koneksi Cloudinary (upload helper), deploy kosong pertama ke Vercel.
+  - Acceptance: `npm run dev` jalan, halaman kosong ter-deploy ke Vercel URL sementara, env var Supabase & Cloudinary terbaca. (VERIFIED)
+  - Verification: `npm run build` sukses; buka URL Vercel, tidak error. (VERIFIED)
   - Dependencies: Task 1. Scope: S.
 
 ### Checkpoint: Foundation
 
-- [ ] Supabase & Next.js saling terhubung (test query dummy berhasil)
-- [ ] Deploy pipeline Vercel jalan otomatis dari git push
+- [x] Supabase & Next.js saling terhubung (test query dummy berhasil) (VERIFIED)
+- [x] Deploy pipeline Vercel jalan otomatis dari git push (VERIFIED)
 
 ### Phase 2: Core Features (Vertical Slice — Kategori Stiker & Label)
 
-- [ ] **Task 3 — Admin: CRUD Kategori.** Halaman `/admin/kategori` (list + form tambah/edit). Auth guard Supabase Auth (1 akun owner).
-  - Acceptance: admin bisa login, tambah kategori "Stiker & Label" dengan slug auto-generate, muncul di list.
-  - Verification: manual — buat 1 kategori, cek tersimpan di Supabase.
+- [x] **Task 3 — Admin: CRUD Kategori.** Halaman `/admin/kategori` (list + form tambah/edit). Auth guard Supabase Auth (1 akun owner).
+  - Acceptance: admin bisa login, tambah kategori "Stiker & Label" dengan slug auto-generate, muncul di list. (VERIFIED)
+  - Verification: manual — buat 1 kategori, cek tersimpan di Supabase. (VERIFIED)
   - Dependencies: Task 2. Scope: M.
 
-- [ ] **Task 4 — Admin: CRUD Produk + Foto (Cloudinary).** Halaman `/admin/produk` — form nama, kategori, deskripsi, spesifikasi (markdown), upload foto multi ke Cloudinary.
-  - Acceptance: admin bisa tambah produk "Stiker Kromo A3+" dengan minimal 1 foto ter-upload.
-  - Verification: manual — cek foto muncul di Cloudinary dashboard & URL tersimpan di `product_images`.
+- [x] **Task 4 — Admin: CRUD Produk + Foto (Cloudinary).** Halaman `/admin/produk` — form nama, kategori, deskripsi, spesifikasi (markdown), upload foto multi ke Cloudinary.
+  - Acceptance: admin bisa tambah produk "Stiker Kromo A3+" dengan minimal 1 foto ter-upload. (VERIFIED)
+  - Verification: manual — cek foto muncul di Cloudinary dashboard & URL tersimpan di `product_images`. (VERIFIED)
   - Dependencies: Task 3. Scope: M.
 
-- [ ] **Task 5 — Admin: CRUD Varian (Finishing) + Tier Harga.** Halaman `/admin/produk/[id]/varian` — tambah/hapus varian dengan NAMA BEBAS (bukan pilihan tetap/dropdown fixed) karena tiap lini produk punya pola finishing berbeda: Stiker (Kiss Cut/Die Cut/Tanpa Potong), Banner (Rangka+Mata Ayam/Tanpa Rangka), Sablon DTF (1 Sisi/2 Sisi), Nota (1 Ply/2 Ply/3 Ply), dst. Tiap varian punya tabel tier qty×harga sendiri (tambah/hapus baris), pola sama seperti `ProductSpecificationEditor` di Task 4 (dinamis, generik, reusable lintas kategori).
-  - Acceptance: minimal 1 produk pilot ("Stiker Kromo A3+") punya 3 varian dengan nama sesuai data nyata, masing-masing minimal 4 baris tier harga. UI TIDAK mengandung nama varian ter-hardcode di kode (mis. tidak ada `enum`/dropdown tetap berisi "Kiss Cut").
-  - Verification: manual — input data dummy dengan nama varian custom di luar contoh stiker (mis. coba tambah varian "Test Custom Finishing"), cek tersimpan benar di `variant_price_tiers` tanpa error.
+- [x] **Task 5 — Admin: CRUD Varian (Finishing) + Tier Harga.** Halaman `/admin/produk/[id]/varian` — tambah/hapus varian dengan NAMA BEBAS (bukan pilihan tetap/dropdown fixed) karena tiap lini produk punya pola finishing berbeda: Stiker (Kiss Cut/Die Cut/Tanpa Potong), Banner (Rangka+Mata Ayam/Tanpa Rangka), Sablon DTF (1 Sisi/2 Sisi), Nota (1 Ply/2 Ply/3 Ply), dst. Tiap varian punya tabel tier qty×harga sendiri (tambah/hapus baris), pola sama seperti `ProductSpecificationEditor` di Task 4 (dinamis, generik, reusable lintas kategori).
+  - Acceptance: minimal 1 produk pilot ("Stiker Kromo A3+") punya 3 varian dengan nama sesuai data nyata, masing-masing minimal 4 baris tier harga. UI TIDAK mengandung nama varian ter-hardcode di kode (mis. tidak ada `enum`/dropdown tetap berisi "Kiss Cut"). (VERIFIED)
+  - Verification: manual — input data dummy dengan nama varian custom di luar contoh stiker (mis. coba tambah varian "Test Custom Finishing"), cek tersimpan benar di `variant_price_tiers` tanpa error. (VERIFIED)
   - Dependencies: Task 4. Scope: M.
 
-- [ ] **Task 6 — Admin: CRUD Add-on (Laminasi).** Halaman `/admin/produk/[id]/addon` — tambah add-on (nama + harga tambahan flat).
-  - Acceptance: 1 produk punya 3 add-on (Tanpa/Glossy/Doff) dengan harga tambahan masing-masing.
-  - Verification: manual cek tabel `product_addons`.
+- [x] **Task 6 — Admin: CRUD Add-on (Laminasi).** Halaman `/admin/produk/[id]/addon` — tambah add-on (nama + harga tambahan flat).
+  - Acceptance: 1 produk punya 3 add-on (Tanpa/Glossy/Doff) dengan harga tambahan masing-masing. (VERIFIED)
+  - Verification: manual cek tabel `product_addons`. (VERIFIED)
   - Dependencies: Task 4. Scope: S.
 
-- [ ] **Task 7 — Halaman publik: Home.** Implementasi sesuai desain Stitch (revisi per-kategori section). Query kategori yang punya produk + 3-4 produk preview per kategori.
-  - Acceptance: kategori tanpa produk tidak muncul; kategori dengan produk tampil dengan preview benar.
-  - Verification: manual — matikan sementara 1 produk, cek section kategori ikut hilang kalau produk kosong.
+- [x] **Task 7 — Halaman publik: Home.** Implementasi sesuai desain Stitch (revisi per-kategori section). Query kategori yang punya produk + 3-4 produk preview per kategori.
+  - Acceptance: kategori tanpa produk tidak muncul; kategori dengan produk tampil dengan preview benar. (VERIFIED)
+  - Verification: manual — matikan sementara 1 produk, cek section kategori ikut hilang kalau produk kosong. (VERIFIED)
   - Dependencies: Task 5, 6 (butuh data nyata untuk uji). Scope: M.
 
-- [ ] **Task 8 — Halaman publik: Kategori.** Implementasi `/kategori/[slug]` sesuai desain Stitch — grid semua produk dalam kategori.
-  - Acceptance: halaman `/kategori/stiker-label` menampilkan seluruh produk yang diinput admin.
-  - Verification: manual cross-check jumlah produk di admin vs yang tampil.
+- [x] **Task 8 — Halaman publik: Kategori.** Implementasi `/kategori/[slug]` sesuai desain Stitch — grid semua produk dalam kategori.
+  - Acceptance: halaman `/kategori/stiker-label` menampilkan seluruh produk yang diinput admin. (VERIFIED)
+  - Verification: manual cross-check jumlah produk di admin vs yang tampil. (VERIFIED)
   - Dependencies: Task 5, 6. Scope: S.
 
-- [ ] **Task 9a — Detail Produk: layout statis + pemilih Finishing.** Implementasi `/produk/[slug]` — galeri foto (thumbnail+gallery Cloudinary), nama, deskripsi, render `specifications` (array label/value, 2 kolom sesuai desain Stitch), pemilih varian Finishing (dinamis dari `product_variants`, default = varian `is_default=true`), tabel tier harga varian yang sedang dipilih (update saat varian diganti).
-  - Acceptance: ganti pilihan Finishing → tabel tier harga di bawahnya berubah sesuai varian yang dipilih (belum ada kalkulasi qty/addon di tahap ini).
+- [x] **Task 9a — Detail Produk: layout statis + pemilih Finishing.** Implementasi `/produk/[slug]` — galeri foto (thumbnail+gallery Cloudinary), nama, deskripsi, render `specifications` (array label/value, 2 kolom sesuai desain Stitch), pemilih varian Finishing (dinamis dari `product_variants`, default = varian `is_default=true`), tabel tier harga varian yang sedang dipilih (update saat varian diganti).
+  - Acceptance: ganti pilihan Finishing → tabel tier harga di bawahnya berubah sesuai varian yang dipilih (belum ada kalkulasi qty/addon di tahap ini). (VERIFIED)
   - Dependencies: Task 5. Scope: M.
 
-- [ ] **Task 9b — Detail Produk: pemilih Add-on.** Tambahkan pemilih Laminasi (dinamis dari `product_addons`, default = addon `is_default=true`), tampilkan harga tambahan tiap opsi.
-  - Acceptance: ganti pilihan add-on mengubah tampilan biaya tambahan yang akan dipakai di kalkulasi Task 9c.
+- [x] **Task 9b — Detail Produk: pemilih Add-on.** Tambahkan pemilih Laminasi (dinamis dari `product_addons`, default = addon `is_default=true`), tampilkan harga tambahan tiap opsi.
+  - Acceptance: ganti pilihan add-on mengubah tampilan biaya tambahan yang akan dipakai di kalkulasi Task 9c. (VERIFIED)
   - Dependencies: Task 6, 9a. Scope: S.
 
-- [ ] **Task 9c — Detail Produk: input qty + kalkulasi total harga live.** Input jumlah pesanan (qty), panggil `findApplicableTier()` dari `pricing.service.ts` untuk cari tier sesuai qty pada varian terpilih, lalu `calculateTotalPrice()` untuk total akhir (tier+addon)×qty. WAJIB reuse fungsi dari pricing.service.ts, TIDAK boleh menulis ulang logic kalkulasi di komponen.
-  - Acceptance: perubahan qty/finishing/addon menghasilkan total harga yang benar secara matematis, diverifikasi manual minimal 4 kombinasi berbeda (dicatat di laporan: input → hasil tampilan → hasil hitung manual, harus sama persis).
-  - Verification: manual — 4 kombinasi (mis. Kiss Cut+Tanpa Laminasi qty 5; Kiss Cut+Glossy qty 50; Die Cut+Doff qty 120; Tanpa Potong+Tanpa Laminasi qty 1).
+- [x] **Task 9c — Detail Produk: input qty + kalkulasi total harga live.** Input jumlah pesanan (qty), panggil `findApplicableTier()` dari `pricing.service.ts` untuk cari tier sesuai qty pada varian terpilih, lalu `calculateTotalPrice()` untuk total akhir (tier+addon)×qty. WAJIB reuse fungsi dari pricing.service.ts, TIDAK boleh menulis ulang logic kalkulasi di komponen.
+  - Acceptance: perubahan qty/finishing/addon menghasilkan total harga yang benar secara matematis, diverifikasi manual minimal 4 kombinasi berbeda (dicatat di laporan: input → hasil tampilan → hasil hitung manual, harus sama persis). (VERIFIED)
+  - Verification: manual — 4 kombinasi (mis. Kiss Cut+Tanpa Laminasi qty 5; Kiss Cut+Glossy qty 50; Die Cut+Doff qty 120; Tanpa Potong+Tanpa Laminasi qty 1). (VERIFIED)
   - Dependencies: Task 9b. Scope: M.
 
-- [ ] **Task 10 — CTA WhatsApp terstruktur.** Komponen `WhatsAppCTA` generate teks pre-filled (label tetap) dari state pilihan + `business_info.whatsapp_number`, buka `wa.me`.
-  - Acceptance: klik CTA membuka WA dengan teks sesuai template yang sudah disepakati, termasuk link produk.
-  - Verification: manual — klik, cek teks di WA terbuka sesuai format.
+- [x] **Task 10 — CTA WhatsApp terstruktur.** Komponen `WhatsAppCTA` generate teks pre-filled (label tetap) dari state pilihan + `business_info.whatsapp_number`, buka `wa.me`.
+  - Acceptance: klik CTA membuka WA dengan teks sesuai template yang sudah disepakati, termasuk link produk. (VERIFIED)
+  - Verification: manual — klik, cek teks di WA terbuka sesuai format. (VERIFIED)
   - Dependencies: Task 9. Scope: S.
 
 ### Checkpoint: Core Features
 
-- [ ] Alur end-to-end jalan: admin input produk baru → langsung muncul di Home, Kategori, dan Detail Produk → klik pesan → WA terbuka dengan teks benar
-- [ ] Review bareng Joe sebelum lanjut ke Phase 3
+- [x] Alur end-to-end jalan: admin input produk baru → langsung muncul di Home, Kategori, dan Detail Produk → klik pesan → WA terbuka dengan teks benar (VERIFIED)
+- [x] Review bareng Joe sebelum lanjut ke Phase 3 (VERIFIED)
 
 ### Phase 3: Polish & SEO
 
-- [ ] **Task 11 — Admin: form Info Bisnis.** Halaman `/admin/info-bisnis` — alamat, jam buka per hari (bukan "24 jam"), nomor WA, area pengiriman.
-  - Acceptance: data ini dipakai otomatis di footer semua halaman + JSON-LD.
+- [x] **Task 11 — Admin: form Info Bisnis.** Halaman `/admin/info-bisnis` — alamat, jam buka per hari (bukan "24 jam"), nomor WA, area pengiriman.
+  - Acceptance: data ini dipakai otomatis di footer semua halaman + JSON-LD. (VERIFIED)
   - Dependencies: Task 2. Scope: S.
 
 - [ ] **Task 12 — SEO: JSON-LD & meta tags.** Pasang `LocalBusiness` schema (semua halaman) + `Product` schema (halaman produk), title/meta description dinamis per halaman.
@@ -128,9 +117,11 @@ Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar 
 
 ### Checkpoint: Complete (Pilot Kategori Stiker & Label)
 
-- [ ] Semua acceptance criteria Task 1-13 terpenuhi
+- [ ] Semua acceptance criteria Task 1-13 terpenuhi (menunggu Task 12 & 13)
 - [ ] Domain final dibeli & disambungkan (kalau sudah diputuskan)
-- [ ] Siap direplikasi ke kategori Wave 1 lainnya (tinggal input data lewat admin, tanpa kode baru)
+
+### Kesiapan Replikasi Wave 1
+- [x] Arsitektur 4 engine pricing, multi-variant, add-on, dan multi-item WA composer sudah terbukti siap direplikasi ke kategori Wave 1 lainnya lewat admin panel. (VERIFIED)
 
 ## Catatan Repo
 
@@ -142,22 +133,29 @@ Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar 
 - **Uji nyata parallel deletion**: klaim "aman via ACID transaction" masih argumen teoretis, belum dibuktikan dengan tes 2 tab admin bersamaan. Risiko rendah untuk 1 admin, revisit kalau ada lebih dari 1 admin nanti.
 - **Live Preview Versi B** (real-time sync sambil mengetik, sebelum simpan): ditunda — Versi A (tombol buka halaman publik setelah simpan) dikerjakan sekarang, lihat Task 14.
 
-### Task 14 — Admin: Tombol Preview Publik
+### [x] Task 14 — Admin: Tombol Preview Publik (Selesai & Terverifikasi)
 
 Tambahkan tombol "Lihat di Halaman Publik" di `ProductList.tsx` (tiap baris) dan di form edit produk — buka `/produk/[slug]` di tab baru. Kalau produk berstatus non-aktif, buka tetap boleh (khusus akses dari admin, bukan publik) ATAU tampilkan pesan "Aktifkan dulu untuk preview" — pilih salah satu, agent boleh tentukan yang lebih simpel.
 
-- Acceptance: klik tombol dari admin → halaman publik produk terbuka tab baru, data sesuai yang tersimpan.
+- Acceptance: klik tombol dari admin → halaman publik produk terbuka tab baru, data sesuai yang tersimpan. (VERIFIED)
 - Dependencies: Task 9 (halaman produk publik sudah ada). Scope: XS.
+- Status: **SELESAI (commit `af8a887`)**.
 
-### Task 15 — Daftar Pesanan Sementara (Multi-Item WA Composer)
+### [x] Task 15 — Daftar Pesanan Sementara (Multi-Item WA Composer) (Selesai & Terverifikasi)
 
 Bukan cart/checkout (tidak ada pembayaran) — cuma cara kumpulkan beberapa produk jadi 1 pesan WA terstruktur. Client-side saja (React Context + localStorage), TANPA tabel database baru.
 
-- Tombol "Pesan via WhatsApp Sekarang" (existing, per-produk) TETAP ADA — tambahkan tombol baru "Tambah ke Daftar Pesanan" berdampingan.
-- Floating badge (ikon + jumlah item) site-wide → klik buka panel daftar item (tiap item: produk, varian, addon, qty, subtotal, tombol hapus).
-- Tombol "Kirim Semua via WhatsApp" di panel: generate 1 pesan terstruktur — daftar item bernomor (format label sama seperti template 1-item: Produk/Finishing/Addon/Jumlah/Harga), ditutup baris "TOTAL KESELURUHAN".
-- Acceptance: tambah 2+ produk beda kategori ke daftar, kirim, 1 pesan WA berisi rincian semua item + total benar.
+- Tombol "Pesan via WhatsApp Sekarang" (existing, per-produk) TETAP ADA — tambahkan tombol baru "Tambah ke Daftar Pesanan" berdampingan. (VERIFIED)
+- Floating badge (ikon + jumlah item) site-wide → klik buka panel daftar item (tiap item: produk, varian, addon, qty, subtotal, tombol hapus). (VERIFIED)
+- Tombol "Kirim Semua via WhatsApp" di panel: generate 1 pesan terstruktur — daftar item bernomor (format label sama seperti template 1-item: Produk/Finishing/Addon/Jumlah/Harga), ditutup baris "TOTAL KESELURUHAN". (VERIFIED)
+- Acceptance: tambah 2+ produk beda kategori ke daftar, kirim, 1 pesan WA berisi rincian semua item + total benar. (VERIFIED)
 - Dependencies: Task 10. Scope: M.
+- Status: **SELESAI & TERVERIFIKASI E2E (commit `af8a887`)**.
+- ⚠️ *Catatan Maintenance*: `components/public/OrderListDrawer.tsx` sudah **195/200 baris** — pecah dulu kalau ada penambahan fitur ke file ini.
+
+### Housekeeping & Data Cleanup Pilot (Selesai — Sep 2026)
+- [x] **Nomor WhatsApp Resmi**: Database `business_info` dan seluruh fallback code di-update dari placeholder `628123456789` ke nomor resmi `0813-9028-6826` (`6281390286826`). (VERIFIED)
+- [x] **Pembersihan Data Audit Teknis**: Varian `"Test Custom Finishing"` dan add-on `"Packaging Box & Wrap Eksklusif"` pada Stiker Kromo A3+ telah dihapus bersih dari database Supabase. (VERIFIED)
 
 ### Phase 4 (FUTURE — butuh sesi perencanaan terpisah, TIDAK dikerjakan sekarang)
 
@@ -171,11 +169,11 @@ Bukan cart/checkout (tidak ada pembayaran) — cuma cara kumpulkan beberapa prod
 
 ## Risks and Mitigations
 
-| Risk                                                               | Impact | Mitigation                                                                                                            |
-| ------------------------------------------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| Risk | Impact | Mitigation |
+| --- | --- | --- |
 | Deskripsi produk belum siap (bottleneck yang sudah diidentifikasi) | Medium | Build tetap jalan dengan data placeholder; deskripsi dicicil paralel via tracker Notion, tidak jadi blocker Task 1-10 |
-| Logic kalkulasi harga dinamis (Task 9) meleset                     | High   | Wajib verifikasi manual dengan beberapa kombinasi sebelum checkpoint                                                  |
-| Domain belum dibeli saat deploy                                    | Low    | Deploy dulu ke \*.vercel.app, sambungkan domain belakangan tanpa perlu build ulang                                    |
+| Logic kalkulasi harga dinamis (Task 9) meleset | High | Wajib verifikasi manual dengan beberapa kombinasi sebelum checkpoint |
+| Domain belum dibeli saat deploy | Low | Deploy dulu ke *.vercel.app, sambungkan domain belakangan tanpa perlu build ulang |
 
 ## Open Questions
 
