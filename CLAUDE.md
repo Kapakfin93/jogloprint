@@ -3,7 +3,8 @@
 ## Wajib dibaca dulu sebelum menulis kode apapun
 1. `PRD_WEBSITE_JOGLOPRINT.md` — requirement produk, information architecture, data model lengkap, boundaries.
 2. `IMPLEMENTATION_PLAN_JOGLOPRINT.md` — daftar task terurut + acceptance criteria + checkpoint. **Kerjakan sesuai urutan task di sini, jangan lompat fase.**
-3. Folder `design-reference/` — screenshot 3 halaman (Home, Kategori, Detail Produk) hasil Google Stitch yang sudah disetujui. Referensi VISUAL saja, bukan sumber schema/logic.
+3. `GUIDE_CATALOG_INPUT_PROTOCOL.md` — SOP & visual data model untuk input produk/varian/addon (wajib dibaca sebelum input/seeding katalog).
+4. Folder `design-reference/` — screenshot 3 halaman (Home, Kategori, Detail Produk) hasil Google Stitch yang sudah disetujui. Referensi VISUAL saja, bukan sumber schema/logic.
 
 ## Tech Stack (non-negotiable)
 - Next.js App Router + Tailwind CSS

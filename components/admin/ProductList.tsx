@@ -8,6 +8,7 @@ import DuplicateProductModal from "./DuplicateProductModal";
 import ProductTableRow from "./ProductTableRow";
 import { deleteProductAction, toggleProductActiveAction } from "@/app/admin/actions/products.action";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface ProductListProps {
   readonly initialProducts: ProductWithDetails[];
@@ -85,15 +86,24 @@ export default function ProductList({
             Kelola katalog percetakan, relasi guard kategori & duplikasi template instan
           </p>
         </div>
-        <button
-          onClick={() => {
-            setSelectedProduct(null);
-            setIsModalOpen(true);
-          }}
-          className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-amber-700 transition"
-        >
-          + Tambah Produk
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/panduan"
+            className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-amber-800 hover:bg-amber-100 transition shadow-xs flex items-center gap-1.5"
+          >
+            <span>📖</span>
+            <span>Panduan SOP</span>
+          </Link>
+          <button
+            onClick={() => {
+              setSelectedProduct(null);
+              setIsModalOpen(true);
+            }}
+            className="rounded-xl bg-amber-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md hover:bg-amber-700 transition"
+          >
+            + Tambah Produk
+          </button>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">

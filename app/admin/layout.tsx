@@ -83,6 +83,13 @@ export default async function AdminLayout({
               <span>🖼️</span>
               <span>Banners</span>
             </Link>
+            <Link
+              href="/admin/panduan"
+              className="flex items-center gap-2 md:gap-3 px-3 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold text-amber-300 hover:bg-slate-800 hover:text-amber-200 transition whitespace-nowrap border border-amber-500/20 bg-amber-500/5 mt-2"
+            >
+              <span>📖</span>
+              <span>Panduan & SOP</span>
+            </Link>
           </nav>
         </div>
 
