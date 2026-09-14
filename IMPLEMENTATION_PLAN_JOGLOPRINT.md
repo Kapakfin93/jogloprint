@@ -123,6 +123,26 @@ Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar 
 - [ ] Domain final dibeli & disambungkan (kalau sudah diputuskan)
 - [x] Siap direplikasi ke kategori Wave 1 lainnya (tinggal input data lewat admin, tanpa kode baru) (VERIFIED)
 
+## Wave 1 — Perluasan di Luar Rencana Awal
+
+Dokumentasi fitur dan katalog yang diputuskan langsung oleh Joe dalam iterasi Wave 1 di luar rencana awal:
+
+1. **Tabel & Manajemen `home_banners` (`/admin/banners`)**:
+   - **Tujuan:** Mengelola slider promo dinamis di Home Hero (mengadopsi referensi layout AnugerahPrint).
+   - **Kolom Utama:** `id`, `title`, `subtitle`, `image_url`, `link_url`, `display_order`, `is_active`, `created_at`.
+   - **RLS Policy:** Publik `SELECT` (hanya banner yang `is_active = true`), Write/CRUD hanya untuk admin terautentikasi (`admin_users`).
+
+2. **Panduan Visual Admin & Protokol Input (`/admin/panduan` & `GUIDE_CATALOG_INPUT_PROTOCOL.md`)**:
+   - **Tujuan:** Standarisasi visual dan SOP format pengisian katalog bagi admin/operator (perbedaan pengisian stiker, spanduk meteran, nota ply, sablon DTF, buku yasin, dsb.) langsung di dashboard tanpa perlu membuka file markdown teknis.
+
+3. **Kategori "Lanyard & ID Card" (`lanyard-id-card`)**:
+   - **Produk Baru:** `id-card-pvc-custom` (ID Card PVC Custom).
+   - **Spesifikasi:** Bahan PVC, ukuran standar 54 × 86 mm, print full color, order kelipatan (step) 5 pcs, min order 25 pcs.
+   - **Struktur Harga Tiering:**
+     - Varian 1 Muka: Tier min 25 pcs = Rp 8.000, Tier grosir (> 25 pcs) = Rp 5.000.
+     - Varian 2 Muka: Tier min 25 pcs = Rp 9.000, Tier grosir (> 25 pcs) = Rp 6.000.
+     - Add-on: Tanpa Tali/Lobang (Rp 0), Tambah Tali Lanyard (+Rp 5.000).
+
 ## Pre-Launch Checklist (cek sebelum situs live publik / repo private)
 
 - [ ] Verifikasi semua gambar produk/kategori pakai komponen `<Image />` Next.js (bukan `<img>` biasa) — auto WebP/AVIF + resize, penting untuk skor Core Web Vitals (LCP).
