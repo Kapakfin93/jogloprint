@@ -183,11 +183,53 @@ Bukan cart/checkout (tidak ada pembayaran) — cuma cara kumpulkan beberapa prod
 - Acceptance: tambah 2+ produk beda kategori ke daftar, kirim, 1 pesan WA berisi rincian semua item + total benar. (VERIFIED)
 - Dependencies: Task 10. Scope: M.
 - Status: **SELESAI & TERVERIFIKASI E2E (commit `af8a887`)**.
-- ⚠️ *Catatan Maintenance*: `components/public/OrderListDrawer.tsx` sudah **195/200 baris** — pecah dulu kalau ada penambahan fitur ke file ini.
+
+### [x] Task 16 — Dead Code & Dependency Pruning Audit (Selesai & Terverifikasi)
+
+Audit dependensi dan kode tidak terpakai untuk menjaga codebase tetap ramping, ringan, dan zero-bloat.
+
+- Audit komprehensif menggunakan scan tool dan grep manual untuk dependensi `lucide-react` dan `next-cloudinary`.
+- Seluruh ikon dipastikan 100% menggunakan SVG native (`<svg>` inline).
+- Seluruh rendering gambar produk menggunakan `lib/services/image-url.service.ts` + `<Image />` Next.js native.
+- Uninstall `lucide-react` dan `next-cloudinary` dari `package.json`.
+- Acceptance: 0 import sisa di seluruh repository, bundle terbebas dari library ikon eksternal, `npm run build` sukses 0 error. (VERIFIED)
+- Status: **SELESAI & TERVERIFIKASI**.
+
+### [x] Task 17 — Robustness Testing Suite (Selesai & Terverifikasi)
+
+Implementasi test suite unit murni menggunakan test runner bawaan `node:test` tanpa dependensi berat (vitest/jest).
+
+- Pembuatan `test/services-robustness.test.ts` untuk memverifikasi logic inti di `pricing.service.ts` dan `whatsapp-message.service.ts`.
+- Pengujian kondisi batas ekstrim: `qty=0`, `qty` negatif/float, tiers kosong/null, dimensi 0/negatif pada engine `area` dan `meter_lari`, addon null/undefined, dan fallback `qty` melampaui seluruh tier.
+- Pembersihan nomor telepon WA dan format pesan multi-item.
+- Acceptance: 10/10 test case lulus dalam <400ms, test dapat dijalankan dengan perintah standar `npm test`. (VERIFIED)
+- Status: **SELESAI & TERVERIFIKASI**.
+
+### [x] Task 18 — Hash Audit Trail & Deteksi Duplikat Foto (Selesai & Terverifikasi)
+
+Audit trail integritas file gambar produk berbasis cryptographic hash SHA-256 untuk mencegah duplikasi upload.
+
+- Penambahan kolom `file_hash VARCHAR(64)` pada tabel `product_images` via migrasi database Supabase (`20260916000009_add_file_hash_to_product_images.sql`).
+- Perhitungan hash SHA-256 pada server action `app/actions/upload.action.ts` sebelum gambar dikirim ke Cloudinary.
+- Deteksi otomatis hash serupa di database; jika ditemukan kecocokan, sistem menyertakan peringatan duplikat dengan nama produk terkait.
+- Acceptance: Migrasi database sukses, upload gambar baru menghasilkan hash yang valid, upload ulang gambar identik memunculkan duplicate warning. (VERIFIED)
+- Status: **SELESAI & TERVERIFIKASI**.
+
+### [x] Task 19 — Redesign Navigasi PublicHeader & Mobile Drawer (Selesai & Terverifikasi)
+
+Redesign navigasi kategori pada navbar publik agar tetap rapi saat jumlah kategori bertambah banyak di masa depan.
+
+- **Desktop (>=768px):** Menampilkan 5 kategori pertama (urut `display_order`) secara inline, sisanya dikelompokkan ke dropdown "Lainnya ▾" via komponen terpisah `components/public/CategoryDropdown.tsx`.
+- **Mobile (<768px):** Mengganti deretan kategori dengan 1 tombol "Kategori" (hamburger) yang membuka slide-over drawer via `components/public/CategoryDrawer.tsx` berisi seluruh daftar kategori lengkap.
+- Section grid ikon kategori di halaman Home tetap dipertahankan sesuai keputusan arsitektur.
+- Batasan modularitas: `PublicHeader.tsx` (118 baris), `CategoryDropdown.tsx` (84 baris), dan `CategoryDrawer.tsx` (119 baris) — semuanya mematuhi aturan <200 baris/file.
+- Acceptance: Navigasi berfungsi mulus di Home, Kategori, dan Detail Produk pada resolusi Desktop dan Mobile. (VERIFIED)
+- Status: **SELESAI & TERVERIFIKASI**.
 
 ### Housekeeping & Data Cleanup Pilot (Selesai — Sep 2026)
 - [x] **Nomor WhatsApp Resmi**: Database `business_info` dan seluruh fallback code di-update dari placeholder `628123456789` ke nomor resmi `0813-9028-6826` (`6281390286826`). (VERIFIED)
 - [x] **Pembersihan Data Audit Teknis**: Varian `"Test Custom Finishing"` dan add-on `"Packaging Box & Wrap Eksklusif"` pada Stiker Kromo A3+ telah dihapus bersih dari database Supabase. (VERIFIED)
+- [x] **SSR Hydration Elimination**: Refaktor `OrderListContext.tsx` menggunakan `useSyncExternalStore` dan standardisasi canonical URL pada `ProductDetailClient.tsx` — 0 console warning/error di browser mobile dan desktop. (VERIFIED)
 
 ### Phase 4 (FUTURE — butuh sesi perencanaan terpisah, TIDAK dikerjakan sekarang)
 

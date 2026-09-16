@@ -92,6 +92,7 @@ function ProductFormContent({
       alt_text: img.alt_text || "",
       is_primary: img.is_primary,
       display_order: img.display_order,
+      file_hash: img.file_hash || null,
     })) || []
   );
   const [loading, setLoading] = useState(false);

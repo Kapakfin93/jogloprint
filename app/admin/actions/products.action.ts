@@ -34,6 +34,7 @@ export async function saveProductAction(payload: {
     alt_text?: string;
     is_primary: boolean;
     display_order: number;
+    file_hash?: string | null;
   }>;
 }): Promise<ProductActionResult> {
   try {

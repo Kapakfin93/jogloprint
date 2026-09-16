@@ -94,6 +94,7 @@ export interface ProductImage {
   id: string;
   product_id: string;
   image_url: string;
+  file_hash: string | null;
   alt_text: string | null;
   is_primary: boolean;
   display_order: number;

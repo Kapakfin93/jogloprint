@@ -32,11 +32,11 @@ export default function GuideEnginesTab() {
           Customer mengisi dimensi Panjang & Lebar (cm). Sistem otomatis menghitung total m² dan mengalikan harga per m².
         </p>
         <div className="p-3 bg-slate-50 rounded-xl font-mono text-[11px] text-slate-700 border border-slate-200">
-          Luas m² = (P × L / 10000) × Qty<br />
-          Total = (Harga per m² × Luas Billed) + (Σ Addon × Qty)
+          Luas m² = P × L / 10000<br />
+          Total = Luas Billed × (Harga/m² + Σ Addon/m²) × Qty
         </div>
         <p className="text-[11px] text-slate-500">
-          <b>Contoh:</b> Spanduk Banner MMT Outdoor, Indoor Albatros, Backlite UV.
+          <b>Contoh:</b> Banner MMT Outdoor (Addon Rp0), Stiker Roll / Poster (Addon Laminasi per m²).
         </p>
       </div>
 

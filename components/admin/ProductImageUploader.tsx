@@ -10,6 +10,8 @@ export interface FormImageItem {
   alt_text?: string;
   is_primary: boolean;
   display_order: number;
+  file_hash?: string | null;
+  duplicate_warning?: string | null;
 }
 
 interface ProductImageUploaderProps {
@@ -23,6 +25,7 @@ export default function ProductImageUploader({
 }: ProductImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -30,6 +33,7 @@ export default function ProductImageUploader({
 
     setUploading(true);
     setError(null);
+    const newWarnings: string[] = [];
 
     try {
       const newImages: FormImageItem[] = [...images];
@@ -45,15 +49,22 @@ export default function ProductImageUploader({
           throw new Error(result.error || "Gagal mengunggah foto");
         }
 
+        if (result.duplicate_warning) {
+          newWarnings.push(`"${file.name}": ${result.duplicate_warning}`);
+        }
+
         const isFirst = newImages.length === 0;
         newImages.push({
           image_url: result.data.secure_url,
           alt_text: file.name.split(".")[0],
           is_primary: isFirst,
           display_order: newImages.length,
+          file_hash: result.file_hash || null,
+          duplicate_warning: result.duplicate_warning || null,
         });
       }
 
+      setWarnings((prev) => [...prev, ...newWarnings]);
       onChange(newImages);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Gagal upload");
@@ -104,6 +115,19 @@ export default function ProductImageUploader({
         </div>
       )}
 
+      {warnings.length > 0 && (
+        <div className="rounded-xl bg-amber-50 p-2.5 text-xs text-amber-800 border border-amber-300 space-y-1">
+          <div className="font-bold flex items-center gap-1 text-amber-900">
+            <span>⚠️</span> Peringatan Duplikasi Foto:
+          </div>
+          {warnings.map((w, idx) => (
+            <div key={idx} className="pl-4 text-[11px] leading-tight text-amber-800">
+              • {w}
+            </div>
+          ))}
+        </div>
+      )}
+
       {images.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
           Belum ada foto produk. Klik <strong>+ Pilih Foto</strong> untuk upload foto dari komputer.
@@ -124,6 +148,14 @@ export default function ProductImageUploader({
                 alt={img.alt_text || "Foto Produk"}
                 className="h-20 w-full rounded-lg object-cover"
               />
+              {img.duplicate_warning && (
+                <div
+                  className="absolute top-1 right-1 bg-amber-500 text-white rounded-full p-0.5 px-1.5 text-[9px] font-bold shadow-xs cursor-help"
+                  title={img.duplicate_warning}
+                >
+                  ⚠️ Duplikat
+                </div>
+              )}
               <div className="mt-1 flex items-center justify-between px-1">
                 <button
                   type="button"
@@ -149,3 +181,4 @@ export default function ProductImageUploader({
     </div>
   );
 }
+

@@ -70,7 +70,7 @@ Setiap Kategori mengunci (*guard*) perilaku kalkulator produk:
 | Engine | Satuan Default (`unit_label`) | Input di Publik | Rumus Hitung Total Harga | Contoh Produk |
 | :--- | :--- | :--- | :--- | :--- |
 | **`sheet`** | `lembar`, `pcs` | Qty (Angka) | $(\text{Harga Tier} + \sum \text{Addon}) \times \text{Qty}$ | Stiker A3+, Brosur, Kartu Nama |
-| **`area`** | `pcs` | Panjang (cm), Lebar (cm), Qty (pcs) | $\text{Luas } m^2 = \frac{P \times L}{10000} \times \text{Qty}$<br>$\text{Luas Billed} = \max(\text{Luas}, \text{Min Order})$<br>$\text{Total} = (\text{Harga Tier per } m^2 \times \text{Luas Billed}) + (\sum \text{Addon} \times \text{Qty})$ | Banner MMT, Spanduk Outdoor, Albatros |
+| **`area`** | `pcs` | Panjang (cm), Lebar (cm), Qty (pcs) | $\text{Luas } m^2 = \frac{P \times L}{10000}$<br>$\text{Luas Billed} = \max(\text{Luas}, \text{Min Order})$<br>$\text{Total} = \text{Luas Billed} \times (\text{Harga Tier per } m^2 + \sum \text{Addon per } m^2) \times \text{Qty}$ | Banner MMT (Addon Rp0), Stiker Roll / Poster (Addon Laminasi per $m^2$) |
 | **`meter_lari`** | `meter`, `m` | Panjang Meter (Angka) | $(\text{Harga Tier per meter} + \sum \text{Addon}) \times \text{Panjang Meter}$ | DTF Roll, Kain Textile, Polyflex |
 | **`bundle`** | `buku`, `rim`, `pack`, `box` | Qty Paket (Angka) | $(\text{Harga Tier per bundle} + \sum \text{Addon}) \times \text{Qty}$ | Nota NCR, Karcis, Stopmap |
 

@@ -71,10 +71,8 @@ export default function ProductDetailClient({
   });
 
   const siteBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jogloweb.vercel.app";
-  const productUrl =
-    typeof window !== "undefined" && window.location.href
-      ? window.location.href
-      : `${siteBaseUrl}/produk/${productSlug}`;
+  const productUrl = `${siteBaseUrl}/produk/${productSlug}`;
+
 
   const orderMessage = generateOrderMessage({
     productName,

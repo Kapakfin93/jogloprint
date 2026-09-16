@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useMemo,
+  useSyncExternalStore,
+  useCallback,
+} from "react";
 import { OrderItem } from "@/lib/types/order-list";
 
 const STORAGE_KEY = "joglo_order_list_v1";
@@ -20,18 +27,53 @@ interface OrderListContextType {
 
 const OrderListContext = createContext<OrderListContextType | undefined>(undefined);
 
-function getInitialItems(): OrderItem[] {
+const listeners = new Set<() => void>();
+function emitChange() {
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(callback: () => void) {
+  listeners.add(callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    listeners.delete(callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+let cachedRaw: string | null = null;
+let cachedItems: OrderItem[] = [];
+
+function getSnapshot(): OrderItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) return parsed;
+    const raw = window.localStorage.getItem(STORAGE_KEY) || "[]";
+    if (raw !== cachedRaw) {
+      cachedRaw = raw;
+      const parsed = JSON.parse(raw);
+      cachedItems = Array.isArray(parsed) ? parsed : [];
     }
+    return cachedItems;
   } catch {
-    // Ignore storage parse errors
+    return cachedItems;
   }
-  return [];
+}
+
+const SERVER_EMPTY_ITEMS: OrderItem[] = [];
+function getServerSnapshot(): OrderItem[] {
+  return SERVER_EMPTY_ITEMS;
+}
+
+function saveItemsToStorage(items: OrderItem[]) {
+  try {
+    const raw = JSON.stringify(items);
+    window.localStorage.setItem(STORAGE_KEY, raw);
+    cachedRaw = raw;
+    cachedItems = items;
+    emitChange();
+  } catch {
+    // Ignore quota errors
+  }
 }
 
 export function OrderListProvider({
@@ -39,19 +81,10 @@ export function OrderListProvider({
 }: {
   readonly children: React.ReactNode;
 }) {
-  const [items, setItems] = useState<OrderItem[]>(getInitialItems);
+  const items = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Sync to localStorage on item state change
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      // Ignore quota/storage errors
-    }
-  }, [items]);
-
-  const addItem = React.useCallback(
+  const addItem = useCallback(
     (newItem: Omit<OrderItem, "id" | "addedAt">) => {
       const uniqueId =
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -63,22 +96,25 @@ export function OrderListProvider({
         id: uniqueId,
         addedAt: Date.now(),
       };
-      setItems((prev) => [...prev, item]);
+      saveItemsToStorage([...items, item]);
     },
-    [items.length]
+    [items]
   );
 
-  const removeItem = React.useCallback((id: string) => {
-    setItems((prev) => prev.filter((it) => it.id !== id));
+  const removeItem = useCallback(
+    (id: string) => {
+      saveItemsToStorage(items.filter((it) => it.id !== id));
+    },
+    [items]
+  );
+
+  const clearItems = useCallback(() => {
+    saveItemsToStorage([]);
   }, []);
 
-  const clearItems = React.useCallback(() => {
-    setItems([]);
-  }, []);
-
-  const openDrawer = React.useCallback(() => setIsDrawerOpen(true), []);
-  const closeDrawer = React.useCallback(() => setIsDrawerOpen(false), []);
-  const toggleDrawer = React.useCallback(() => setIsDrawerOpen((prev) => !prev), []);
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
+  const toggleDrawer = useCallback(() => setIsDrawerOpen((prev) => !prev), []);
 
   const totalCount = items.length;
   const totalAmount = useMemo(

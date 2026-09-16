@@ -20,7 +20,8 @@ export async function addProductImage(
   imageUrl: string,
   altText?: string,
   isPrimary = false,
-  displayOrder = 0
+  displayOrder = 0,
+  fileHash?: string | null
 ): Promise<ProductImage> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -31,6 +32,7 @@ export async function addProductImage(
       alt_text: altText || null,
       is_primary: isPrimary,
       display_order: displayOrder,
+      file_hash: fileHash || null,
     })
     .select()
     .single();
@@ -48,6 +50,7 @@ export async function syncProductImages(
     alt_text?: string;
     is_primary: boolean;
     display_order: number;
+    file_hash?: string | null;
   }>
 ): Promise<void> {
   const supabase = await createClient();
@@ -63,6 +66,7 @@ export async function syncProductImages(
     alt_text: img.alt_text || null,
     is_primary: img.is_primary ?? idx === 0,
     display_order: img.display_order ?? idx,
+    file_hash: img.file_hash || null,
   }));
 
   const { error } = await supabase.from("product_images").insert(rows);

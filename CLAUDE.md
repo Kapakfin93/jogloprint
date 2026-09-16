@@ -12,6 +12,11 @@
 - Cloudinary untuk semua foto produk (bukan Supabase Storage)
 - Deploy: Vercel
 
+## Dependency yang SENGAJA Tidak Dipakai (Anti-Bloat)
+Dilarang meng-install kembali dependency berikut tanpa izin eksplisit:
+- **`lucide-react`**: Sudah di-uninstall. Seluruh icon di website publik maupun admin WAJIB menggunakan SVG native (inline `<svg>` yang clean & lightweight).
+- **`next-cloudinary`**: Sudah di-uninstall. Image rendering dan optimasi URL transformasi Cloudinary dilakukan secara native via `lib/services/image-url.service.ts` dipadukan dengan komponen `<Image />` bawaan Next.js.
+
 ## Arsitektur Wajib: 3 Layer
 Setiap fitur HARUS dipisah jadi 3 lapisan, tidak boleh dicampur dalam 1 file:
 
@@ -20,10 +25,23 @@ app/                        → LAYER 1: Presentation (UI/route only)
   (public)/produk/[slug]/page.tsx    → render UI, panggil service, TIDAK query Supabase langsung
   admin/produk/page.tsx
 
+components/
+  public/                   → Komponen publik terfokus (maks 200 baris/file)
+    PublicHeader.tsx        → Navbar publik utama
+    CategoryDropdown.tsx    → Desktop dropdown "Lainnya ▾" untuk kategori sisa (>5)
+    CategoryDrawer.tsx      → Mobile slide-over drawer untuk seluruh list kategori
+    ProductDetailClient.tsx
+    ProductGallery.tsx
+    VariantPriceTable.tsx
+    WhatsAppCTA.tsx
+    ...
+  admin/                    → Komponen admin dashboard
+
 lib/services/                → LAYER 2: Business Logic
-  pricing.ts                 → hitung harga (tier + addon + qty), format currency
-  whatsapp-message.ts        → generate teks pesan WA terstruktur
-  slug.ts                    → generate & validasi slug
+  pricing.service.ts         → hitung harga (4 engine: sheet, bundle, area, meter_lari)
+  whatsapp-message.service.ts → generate teks pesan WA terstruktur (single & multi-item)
+  image-url.service.ts       → optimasi URL Cloudinary native
+  slug.service.ts            → generate & validasi slug
 
 lib/repositories/            → LAYER 3: Data Access (SATU-SATUNYA tempat yang boleh import supabase client)
   categories.repository.ts   → getCategories(), getCategoryBySlug(), createCategory(), dst
@@ -31,6 +49,9 @@ lib/repositories/            → LAYER 3: Data Access (SATU-SATUNYA tempat yang 
   variants.repository.ts
   addons.repository.ts
   business-info.repository.ts
+
+test/                        → Unit test murni (node:test bawaan)
+  services-robustness.test.ts → test kondisi batas pricing & WA composer
 
 lib/supabase/
   client.ts                  → browser client
@@ -41,6 +62,23 @@ lib/supabase/
 - `app/**/page.tsx` dan komponen UI **tidak boleh** memanggil Supabase langsung — selalu lewat `lib/repositories/`.
 - `lib/repositories/` **tidak boleh** berisi logic perhitungan (harga, format) — itu tugas `lib/services/`.
 - `lib/services/` **tidak boleh** tahu soal Supabase sama sekali (harus bisa di-unit-test tanpa database).
+
+## Testing & Robustness
+- **Framework:** Test runner bawaan `node:test` + `node:assert/strict` (bukan Vitest/Jest, menjaga zero-dependency).
+- **Lokasi Test:** Folder `test/` (misal: `test/services-robustness.test.ts`).
+- **Command:** `npm test` (atau `npx tsx --test test/services-robustness.test.ts`).
+- **Pola Robustness Test (Wajib untuk Service Baru):**
+  Setiap logic murni baru di `lib/services/` (kalkulasi harga, formatting, WhatsApp message composer) WAJIB memiliki unit test untuk kondisi batas (boundary conditions):
+  1. `qty` = 0, bernilai negatif, atau nilai ekstrim.
+  2. Tiers kosong (`[]`), `null`, atau `undefined`.
+  3. Dimensi 0 atau negatif untuk engine `area` dan `meter_lari`.
+  4. Add-on bernilai `null` / tidak dipilih.
+  5. `qty` melebihi batas tier tertinggi yang terdaftar (fallback tiering).
+
+## Audit Trail & Deteksi Duplikat Foto
+- Kolom `product_images.file_hash`: Menyimpan hash SHA-256 dari file biner gambar asli.
+- **Workflow Upload:** Sebelum file dikirim ke Cloudinary, hash SHA-256 dihitung di server action (`app/actions/upload.action.ts`).
+- **Deteksi Duplikat:** Hash dicek terhadap database `product_images`. Jika hash sudah pernah di-upload sebelumnya, sistem memberikan warning duplikat dan menampilkan nama produk yang sudah memakainya agar admin terhindar dari pengunggahan ganda.
 
 ## Batas Ukuran File
 - **Maksimal 200 baris per file.** Kalau sebuah komponen/service/repository mendekati/melebihi itu, **pecah** jadi beberapa file yang lebih kecil dan fokus (single responsibility), jangan dipaksa muat dalam 1 file.
@@ -75,6 +113,7 @@ NEXT_PUBLIC_WHATSAPP_NUMBER=
 npm run dev
 npm run build
 npm run lint
+npm test
 vercel --prod
 ```
 
