@@ -36,15 +36,7 @@ export default function ProductGallery({ productName, images }: ProductGalleryPr
             </div>
           )}
 
-          {/* Badges on image */}
-          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1.5 shadow-xs border border-slate-100">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-[11px] font-bold text-slate-800">Digital Press 2400 DPI</span>
-          </div>
 
-          <div className="absolute bottom-3 right-3 bg-slate-950/75 text-white backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-semibold">
-            Area Cetak A3+
-          </div>
         </div>
       </div>
 

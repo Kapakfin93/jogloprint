@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { VariantDetailItem } from "@/lib/repositories/product-detail.repository";
-import { ProductAddon, PricingEngine } from "@/lib/types/database";
+import { ProductAddon, PricingEngine, AddonSelectionMode } from "@/lib/types/database";
 import { formatCurrency } from "@/lib/services/pricing.service";
 import {
   generateOrderMessage,
@@ -22,6 +22,7 @@ interface ProductDetailClientProps {
   readonly productName: string;
   readonly productSlug: string;
   readonly pricingModel?: PricingEngine;
+  readonly addonSelectionMode?: AddonSelectionMode;
   readonly minOrderQty?: number | null;
   readonly maxRollWidthCm?: number | null;
   readonly variants: readonly VariantDetailItem[];
@@ -35,6 +36,7 @@ export default function ProductDetailClient({
   productName,
   productSlug,
   pricingModel = "sheet",
+  addonSelectionMode = "single",
   minOrderQty = 1.0,
   maxRollWidthCm,
   variants,
@@ -49,8 +51,27 @@ export default function ProductDetailClient({
   const defaultVariantId = variants.find((v) => v.is_default)?.id || variants[0]?.id || "";
   const [selectedVariantId, setSelectedVariantId] = useState<string>(defaultVariantId);
 
-  const defaultAddonId = addons.find((a) => a.is_default)?.id || addons[0]?.id || "";
-  const [selectedAddonId, setSelectedAddonId] = useState<string>(defaultAddonId);
+  const isMulti = addonSelectionMode === "multi";
+
+  const initialAddonIds = useMemo(() => {
+    if (isMulti) {
+      return addons.filter((a) => a.is_default).map((a) => a.id);
+    }
+    const def = addons.find((a) => a.is_default)?.id || addons[0]?.id;
+    return def ? [def] : [];
+  }, [addons, isMulti]);
+
+  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>(initialAddonIds);
+
+  const handleToggleAddon = useCallback((id: string) => {
+    if (isMulti) {
+      setSelectedAddonIds((prev) =>
+        prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      );
+    } else {
+      setSelectedAddonIds([id]);
+    }
+  }, [isMulti]);
 
   const [qty, setQty] = useState<number>(minOrderQty || 1);
   const [lengthCm, setLengthCm] = useState<number>(150);
@@ -61,7 +82,7 @@ export default function ProductDetailClient({
     variants,
     addons,
     selectedVariantId,
-    selectedAddonId,
+    selectedAddonIds,
     qty,
     lengthCm,
     widthCm,
@@ -73,12 +94,12 @@ export default function ProductDetailClient({
   const siteBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jogloweb.vercel.app";
   const productUrl = `${siteBaseUrl}/produk/${productSlug}`;
 
-
   const orderMessage = generateOrderMessage({
     productName,
     variantName: pricing.selectedVariant?.variant_name || "-",
-    addonName: pricing.selectedAddon?.name || "Standar / Tanpa Tambahan",
+    addonName: pricing.combinedAddonName,
     addonPrice: pricing.addonFlat,
+    selectedAddons: pricing.selectedAddons.map((a) => ({ name: a.name, price_flat: a.price_flat })),
     unitPrice: pricing.unitPrice,
     qty,
     unitLabel: pricing.safeUnit,
@@ -101,8 +122,9 @@ export default function ProductDetailClient({
       productName,
       productSlug,
       variantName: pricing.selectedVariant?.variant_name || "-",
-      addonName: pricing.selectedAddon?.name || "Standar / Tanpa Tambahan",
+      addonName: pricing.combinedAddonName,
       addonPrice: pricing.addonFlat,
+      selectedAddons: pricing.selectedAddons.map((a) => ({ name: a.name, price_flat: a.price_flat })),
       unitPrice: pricing.calcUnitPrice,
       qty,
       unitLabel: pricing.isArea ? "pcs" : pricing.safeUnit,
@@ -161,10 +183,11 @@ export default function ProductDetailClient({
       {addons.length > 0 && (
         <AddonSelector
           addons={addons as ProductAddon[]}
-          selectedAddonId={selectedAddonId}
+          selectedAddonIds={selectedAddonIds}
+          selectionMode={addonSelectionMode}
           unitLabel={pricing.isArea ? "pcs" : pricing.safeUnit}
-          onSelectAddon={setSelectedAddonId}
-          title={pricing.isMeterLari ? "2. Jenis Finishing / Jahitan" : "2. Lapisan Tambahan / Add-on"}
+          onToggleAddon={handleToggleAddon}
+          title={pricing.isMeterLari ? "2. Jenis Finishing / Jahitan" : undefined}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { Product, ProductImage, ProductAddon, VariantPriceTier, ProductVariant } from "@/lib/types/database";
+import { Product, ProductImage, ProductAddon, VariantPriceTier, ProductVariant, AddonSelectionMode } from "@/lib/types/database";
 import { getLowestPriceFromVariants } from "@/lib/services/pricing.service";
 
 export interface VariantDetailItem extends ProductVariant {
@@ -12,6 +12,7 @@ export interface ProductDetailPageData {
     id: string;
     name: string;
     slug: string;
+    addon_selection_mode: AddonSelectionMode;
   };
   images: ProductImage[];
   variants: VariantDetailItem[];
@@ -29,7 +30,7 @@ export async function getProductDetailPageData(slug: string): Promise<ProductDet
     .from("products")
     .select(`
       *,
-      categories!inner(id, name, slug),
+      categories!inner(id, name, slug, addon_selection_mode),
       product_images(*),
       product_variants(
         *,
@@ -69,7 +70,13 @@ export async function getProductDetailPageData(slug: string): Promise<ProductDet
 
   const lowestPrice = getLowestPriceFromVariants(variants);
 
-  const categoryObj = data.categories as unknown as { id: string; name: string; slug: string };
+  const rawCat = data.categories as unknown as { id: string; name: string; slug: string; addon_selection_mode?: AddonSelectionMode };
+  const categoryObj = {
+    id: rawCat.id,
+    name: rawCat.name,
+    slug: rawCat.slug,
+    addon_selection_mode: rawCat.addon_selection_mode || ("single" as AddonSelectionMode),
+  };
 
   const product: Product = {
     id: data.id,

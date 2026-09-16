@@ -137,6 +137,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   productName={product.name}
                   productSlug={product.slug}
                   pricingModel={product.pricing_model}
+                  addonSelectionMode={category.addon_selection_mode}
                   minOrderQty={product.min_order_qty}
                   maxRollWidthCm={
                     category.slug === "stiker-per-meter" || category.slug === "stiker-meteran" || category.slug === "indoor-poster-display"
