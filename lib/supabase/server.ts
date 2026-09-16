@@ -47,14 +47,33 @@ export function createAdminClient() {
 }
 
 /**
- * Returns a trusted admin Supabase client if SUPABASE_SERVICE_ROLE_KEY is configured,
- * otherwise falls back to standard session client.
- * Use for server-side mutations in admin repositories and actions to avoid RLS blockages.
+ * Enforces admin authentication before granting an elevated mutation client.
+ * 1. Checks valid user session via session client (cookies).
+ * 2. Verifies user exists in admin_users table with admin privileges.
+ * 3. Throws UNAUTHORIZED / FORBIDDEN if verification fails.
+ * 4. Only returns createAdminClient() upon confirmed admin identity.
  */
-export async function getMutationClient() {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return createAdminClient();
+export async function requireAdminMutationClient() {
+  const sessionClient = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await sessionClient.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error("UNAUTHORIZED: Sesi admin tidak valid atau belum login.");
   }
-  return await createClient();
+
+  const { data: adminUser, error: roleError } = await sessionClient
+    .from("admin_users")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  if (roleError || !adminUser) {
+    throw new Error("FORBIDDEN: Akun Anda tidak memiliki hak akses administrator.");
+  }
+
+  return createAdminClient();
 }
 

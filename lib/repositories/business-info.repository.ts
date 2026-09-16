@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, requireAdminMutationClient } from "@/lib/supabase/server";
 import { BusinessInfo } from "@/lib/types/database";
 
 export async function getBusinessInfo(): Promise<BusinessInfo | null> {
@@ -21,7 +21,7 @@ export async function updateBusinessInfo(
   id: string,
   updates: Partial<Omit<BusinessInfo, "id" | "created_at" | "updated_at">>
 ): Promise<BusinessInfo> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { data, error } = await supabase
     .from("business_info")
     .update({

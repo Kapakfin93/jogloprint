@@ -248,7 +248,7 @@ Redesign navigasi kategori pada navbar publik agar tetap rapi saat jumlah katego
 | Deskripsi produk belum siap (bottleneck yang sudah diidentifikasi) | Medium | Build tetap jalan dengan data placeholder; deskripsi dicicil paralel via tracker Notion, tidak jadi blocker Task 1-10 |
 | Logic kalkulasi harga dinamis (Task 9) meleset | High | Wajib verifikasi manual dengan beberapa kombinasi sebelum checkpoint |
 | Domain belum dibeli saat deploy | Low | Deploy dulu ke \*.vercel.app, sambungkan domain belakangan tanpa perlu build ulang |
-| **Security Debt (Dev Phase): Admin Mutation via Service Role tanpa Auth Session** | **Critical (saat Production)** | Saat ini mutasi admin (`getMutationClient()`) menggunakan `SUPABASE_SERVICE_ROLE_KEY` untuk bypass RLS agar input katalog dev tidak terblokir. **WAJIB SEBELUM PRODUCTION LAUNCH**: Pasang Next.js Middleware (`middleware.ts`) untuk proteksi route `/admin/:path*` dan validasi session Supabase Auth di seluruh server action admin sebelum `getMutationClient()` dieksekusi. |
+| **[RESOLVED] Security Hardening: Admin Mutation Enforces Session Verification** | **None (Resolved)** | **SELESAI**: `getMutationClient()` telah digantikan dengan `requireAdminMutationClient()` di root `lib/supabase/server.ts` dan seluruh repository (`products`, `categories`, `variants`, `addons`, `product-images`, `home-banners`, `business-info`). Setiap mutasi wajib lolos `auth.getUser()` dan verifikasi tabel `admin_users`, jika tidak langsung melempar error `UNAUTHORIZED`/`FORBIDDEN`. Selain itu, `middleware.ts` dan `app/admin/layout.tsx` secara aktif me-redirect akses tanpa sesi ke `/admin/login`. Terbukti lolos uji tolak (100% rejected untuk request tanpa sesi). |
 
 ## Open Questions
 

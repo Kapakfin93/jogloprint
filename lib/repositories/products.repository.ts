@@ -1,4 +1,4 @@
-import { createClient, getMutationClient } from "@/lib/supabase/server";
+import { createClient, requireAdminMutationClient } from "@/lib/supabase/server";
 import { Product, ProductImage, ProductSpecificationItem, PricingEngine } from "@/lib/types/database";
 
 export interface ProductWithDetails extends Product {
@@ -110,7 +110,7 @@ export async function createProduct(product: {
   display_order?: number;
   is_active?: boolean;
 }): Promise<Product> {
-  const supabase = await getMutationClient();
+  const supabase = await requireAdminMutationClient();
   const { data, error } = await supabase
     .from("products")
     .insert(product)
@@ -138,7 +138,7 @@ export async function updateProduct(
     is_active: boolean;
   }>
 ): Promise<Product> {
-  const supabase = await getMutationClient();
+  const supabase = await requireAdminMutationClient();
   const { data, error } = await supabase
     .from("products")
     .update(product)
@@ -153,7 +153,7 @@ export async function updateProduct(
 }
 
 export async function toggleProductActive(id: string, isActive: boolean): Promise<void> {
-  const supabase = await getMutationClient();
+  const supabase = await requireAdminMutationClient();
   const { error } = await supabase
     .from("products")
     .update({ is_active: isActive })
@@ -165,7 +165,7 @@ export async function toggleProductActive(id: string, isActive: boolean): Promis
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  const supabase = await getMutationClient();
+  const supabase = await requireAdminMutationClient();
   const { error } = await supabase.rpc("delete_product_admin", { p_id: id });
 
   if (error) {
@@ -184,7 +184,7 @@ export async function duplicateProduct(
   newName?: string,
   newSlug?: string
 ): Promise<string> {
-  const supabase = await getMutationClient();
+  const supabase = await requireAdminMutationClient();
   const { data, error } = await supabase.rpc("duplicate_product", {
     source_id: sourceId,
     p_name: newName || null,

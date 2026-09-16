@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, requireAdminMutationClient } from "@/lib/supabase/server";
 import { Category } from "@/lib/types/database";
 
 export interface CategoryWithStats extends Category {
@@ -67,7 +67,7 @@ export async function createCategory(category: {
   display_order?: number;
   is_active?: boolean;
 }): Promise<Category> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { data, error } = await supabase
     .from("categories")
     .insert(category)
@@ -93,7 +93,7 @@ export async function updateCategory(
     is_active: boolean;
   }>
 ): Promise<Category> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { data, error } = await supabase
     .from("categories")
     .update(category)
@@ -108,7 +108,7 @@ export async function updateCategory(
 }
 
 export async function toggleCategoryActive(id: string, isActive: boolean): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { error } = await supabase
     .from("categories")
     .update({ is_active: isActive })
@@ -120,7 +120,7 @@ export async function toggleCategoryActive(id: string, isActive: boolean): Promi
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { error } = await supabase
     .from("categories")
     .delete()

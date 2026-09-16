@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, requireAdminMutationClient } from "@/lib/supabase/server";
 import { ProductVariant, VariantPriceTier } from "@/lib/types/database";
 
 export interface VariantWithTiers extends ProductVariant {
@@ -50,7 +50,7 @@ export async function saveVariantWithTiers(
     display_order?: number;
   }>
 ): Promise<ProductVariant> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   let variantId = variant.id;
 
   if (variantId) {
@@ -112,7 +112,7 @@ export async function saveVariantWithTiers(
 }
 
 export async function deleteVariant(variantId: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { error } = await supabase
     .from("product_variants")
     .delete()

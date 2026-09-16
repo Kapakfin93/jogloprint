@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, requireAdminMutationClient } from "@/lib/supabase/server";
 import { HomeBanner } from "@/lib/types/database";
 
 /** Fetch only active banners ordered for public homepage display */
@@ -33,7 +33,7 @@ export async function createBanner(banner: {
   display_order?: number;
   is_active?: boolean;
 }): Promise<HomeBanner> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { data, error } = await supabase
     .from("home_banners")
     .insert(banner)
@@ -54,7 +54,7 @@ export async function updateBanner(
     is_active: boolean;
   }>
 ): Promise<HomeBanner> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { data, error } = await supabase
     .from("home_banners")
     .update({ ...banner, updated_at: new Date().toISOString() })
@@ -67,7 +67,7 @@ export async function updateBanner(
 }
 
 export async function deleteBanner(id: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { error } = await supabase.from("home_banners").delete().eq("id", id);
   if (error) throw new Error(`Failed to delete banner: ${error.message}`);
 }

@@ -1,19 +1,29 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { logoutAction } from "@/app/admin/actions/auth.action";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 export default async function AdminLayout({
   children,
 }: {
   readonly children: React.ReactNode;
 }) {
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname");
+
+  // Halaman login tidak menggunakan shell dashboard admin
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return <>{children}</>;
+    redirect("/admin/login");
   }
 
   const { data: adminUser } = await supabase
@@ -23,7 +33,7 @@ export default async function AdminLayout({
     .single();
 
   if (!adminUser) {
-    return <>{children}</>;
+    redirect("/admin/login");
   }
 
   return (

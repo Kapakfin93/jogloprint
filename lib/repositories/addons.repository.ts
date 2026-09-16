@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, requireAdminMutationClient } from "@/lib/supabase/server";
 import { ProductAddon } from "@/lib/types/database";
 
 /**
@@ -31,7 +31,7 @@ export async function saveAddon(input: {
   is_default: boolean;
   display_order: number;
 }): Promise<ProductAddon> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
 
   // If this addon is set as default, unset other defaults for this product
   if (input.is_default) {
@@ -73,7 +73,7 @@ export async function saveAddon(input: {
 }
 
 export async function deleteAddon(id: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await requireAdminMutationClient();
   const { error } = await supabase.from("product_addons").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
