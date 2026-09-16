@@ -45,3 +45,16 @@ export function createAdminClient() {
     }
   );
 }
+
+/**
+ * Returns a trusted admin Supabase client if SUPABASE_SERVICE_ROLE_KEY is configured,
+ * otherwise falls back to standard session client.
+ * Use for server-side mutations in admin repositories and actions to avoid RLS blockages.
+ */
+export async function getMutationClient() {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createAdminClient();
+  }
+  return await createClient();
+}
+

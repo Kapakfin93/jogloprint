@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getMutationClient } from "@/lib/supabase/server";
 import { ProductImage } from "@/lib/types/database";
 
 export async function getProductImages(productId: string): Promise<ProductImage[]> {
@@ -23,7 +23,7 @@ export async function addProductImage(
   displayOrder = 0,
   fileHash?: string | null
 ): Promise<ProductImage> {
-  const supabase = await createClient();
+  const supabase = await getMutationClient();
   const { data, error } = await supabase
     .from("product_images")
     .insert({
@@ -53,7 +53,7 @@ export async function syncProductImages(
     file_hash?: string | null;
   }>
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await getMutationClient();
   
   // Delete existing images for this product
   await supabase.from("product_images").delete().eq("product_id", productId);
@@ -76,7 +76,7 @@ export async function syncProductImages(
 }
 
 export async function deleteProductImageRecord(imageId: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await getMutationClient();
   const { error } = await supabase
     .from("product_images")
     .delete()

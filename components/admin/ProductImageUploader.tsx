@@ -24,29 +24,79 @@ export default function ProductImageUploader({
   onChange,
 }: ProductImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+
+  const MAX_TOTAL_IMAGES = 10;
+  const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+  const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setUploading(true);
     setError(null);
+
+    // 1. Validasi Total Jumlah Foto (Max 10)
+    if (images.length + files.length > MAX_TOTAL_IMAGES) {
+      setError(
+        `Maksimal ${MAX_TOTAL_IMAGES} foto per produk. Saat ini sudah ada ${images.length} foto, Anda mencoba menambah ${files.length} foto lagi.`
+      );
+      e.target.value = "";
+      return;
+    }
+
+    // 2. Validasi Format dan Ukuran Setiap File
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      if (!ALLOWED_MIME_TYPES.includes(file.type.toLowerCase())) {
+        setError(
+          `Format file "${file.name}" (${file.type || "tidak dikenal"}) tidak didukung. Harap gunakan format JPG, PNG, atau WebP.`
+        );
+        e.target.value = "";
+        return;
+      }
+
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+        setError(
+          `Ukuran file "${file.name}" (${sizeMb} MB) melebihi batas maksimal 10 MB. Silakan kompres foto sebelum mengunggah.`
+        );
+        e.target.value = "";
+        return;
+      }
+    }
+
+    setUploading(true);
     const newWarnings: string[] = [];
+    const newImages: FormImageItem[] = [...images];
 
     try {
-      const newImages: FormImageItem[] = [...images];
-
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        setUploadStatus(`Mengunggah foto ${i + 1} dari ${files.length} (${file.name})...`);
+
         const formData = new FormData();
         formData.append("file", file);
         formData.append("folder", "products");
 
-        const result = await uploadImageAction(formData);
+        let result;
+        try {
+          result = await uploadImageAction(formData);
+        } catch (fetchErr: unknown) {
+          const rawMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          if (rawMsg.toLowerCase().includes("failed to fetch")) {
+            throw new Error(
+              `Koneksi terputus saat mengunggah "${file.name}". Ukuran file kemungkinan melebihi batas request server (maks. 10MB) atau jaringan terganggu. Silakan periksa koneksi Anda.`
+            );
+          }
+          throw new Error(`Gagal mengunggah "${file.name}": ${rawMsg}`);
+        }
+
         if (!result.success || !result.data) {
-          throw new Error(result.error || "Gagal mengunggah foto");
+          throw new Error(result.error || `Gagal mengunggah "${file.name}"`);
         }
 
         if (result.duplicate_warning) {
@@ -62,14 +112,17 @@ export default function ProductImageUploader({
           file_hash: result.file_hash || null,
           duplicate_warning: result.duplicate_warning || null,
         });
+
+        // Update parsial state agar foto yang berhasil tetap tersimpan walau loop terinterupsi
+        onChange([...newImages]);
       }
 
       setWarnings((prev) => [...prev, ...newWarnings]);
-      onChange(newImages);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Gagal upload");
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat mengunggah foto");
     } finally {
       setUploading(false);
+      setUploadStatus(null);
       e.target.value = "";
     }
   }
@@ -93,15 +146,20 @@ export default function ProductImageUploader({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-          Foto Produk (Cloudinary Multi-Upload)
-        </label>
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+            Foto Produk (Cloudinary Multi-Upload)
+          </label>
+          <span className="text-[10px] text-slate-500 block">
+            Format: JPG, PNG, WebP • Maks. 10MB/file • Maks. {MAX_TOTAL_IMAGES} foto
+          </span>
+        </div>
         <label className="cursor-pointer rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition border border-amber-200">
           {uploading ? "Mengunggah..." : "+ Pilih Foto"}
           <input
             type="file"
             multiple
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/jpg"
             disabled={uploading}
             onChange={handleFileSelect}
             className="hidden"
@@ -109,9 +167,27 @@ export default function ProductImageUploader({
         </label>
       </div>
 
+      {uploadStatus && (
+        <div className="rounded-xl bg-blue-50 p-2 text-xs text-blue-700 border border-blue-200 flex items-center gap-2">
+          <span className="animate-spin text-sm">⏳</span>
+          <span>{uploadStatus}</span>
+        </div>
+      )}
+
       {error && (
-        <div className="rounded-xl bg-red-50 p-2 text-xs text-red-600 border border-red-200">
-          {error}
+        <div className="rounded-xl bg-red-50 p-2.5 text-xs text-red-600 border border-red-200 flex items-start justify-between gap-2">
+          <div className="flex items-start gap-1.5">
+            <span className="text-red-500 font-bold">⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-700 font-bold text-xs"
+            title="Tutup pesan"
+          >
+            ✕
+          </button>
         </div>
       )}
 
