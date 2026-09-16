@@ -31,6 +31,25 @@ export function findApplicableTier(
 }
 
 /**
+ * Calculate the total sum of flat prices from an array of selected addons.
+ * Gracefully handles empty arrays, undefined/null items, negative prices, and Rp 0 items.
+ */
+export function calculateTotalAddons(
+  addons?: Array<{ price_flat?: number | null } | number | null | undefined> | null
+): number {
+  if (!addons || !Array.isArray(addons) || addons.length === 0) return 0;
+
+  return addons.reduce<number>((total, item) => {
+    if (item === null || item === undefined) return total;
+    const price = typeof item === "number" ? item : item.price_flat;
+    if (typeof price === "number" && !Number.isNaN(price) && price > 0) {
+      return total + price;
+    }
+    return total;
+  }, 0);
+}
+
+/**
  * Calculate total price based on unit tier price, flat add-on price, and quantity
  */
 export function calculateTotalPrice(

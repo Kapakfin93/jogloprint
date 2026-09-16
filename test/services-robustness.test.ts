@@ -4,6 +4,7 @@ import {
   formatCurrency,
   findApplicableTier,
   calculateTotalPrice,
+  calculateTotalAddons,
   getLowestPriceFromVariants,
   calculateAreaM2,
   calculateAreaPrice,
@@ -84,6 +85,40 @@ describe("Pricing Service - Robustness & Boundary Conditions", () => {
 
     const negResult = calculateTotalPrice(10000, 2000, -10);
     assert.equal(negResult.grandTotal, 12000);
+  });
+
+  it("calculateTotalAddons: handles empty array, single item, multiple items, mixed with Rp0 and null/undefined", () => {
+    // Array kosong & null/undefined
+    assert.equal(calculateTotalAddons([]), 0);
+    assert.equal(calculateTotalAddons(null), 0);
+    assert.equal(calculateTotalAddons(undefined), 0);
+
+    // 1 item (object dan number)
+    assert.equal(calculateTotalAddons([{ price_flat: 10000 }]), 10000);
+    assert.equal(calculateTotalAddons([10000]), 10000);
+
+    // Banyak item
+    assert.equal(
+      calculateTotalAddons([
+        { price_flat: 10000 },
+        { price_flat: 10000 },
+        { price_flat: 5000 },
+      ]),
+      25000
+    );
+
+    // Campur Rp 0, null, dan undefined
+    assert.equal(
+      calculateTotalAddons([
+        { price_flat: 0 },
+        { price_flat: 10000 },
+        null,
+        undefined,
+        { price_flat: 0 },
+        { price_flat: 5000 },
+      ]),
+      15000
+    );
   });
 
   it("calculateAreaM2 & calculateAreaPrice: handles 0, negative dimensions, and minimum billed area", () => {
@@ -212,6 +247,33 @@ describe("WhatsApp Message Service - Robustness & Template Integrity", () => {
     assert.ok(multiMsg.includes("ITEM #1: Stiker Kromo A3+"));
     assert.ok(multiMsg.includes("ITEM #2: ID Card PVC Custom"));
     assert.ok(multiMsg.includes("TOTAL KESELURUHAN (2 ITEM): Rp 400.000"));
+  });
+
+  it("generateOrderMessage: lists all selected addons when multiple addons are chosen", () => {
+    const msg = generateOrderMessage({
+      productName: "Kaos Sablon Custom",
+      variantName: "Cotton Combed 30s",
+      addonName: "Lengan Panjang, Kerah POLO",
+      addonPrice: 20000,
+      selectedAddons: [
+        { name: "Lengan Panjang", price_flat: 10000 },
+        { name: "Kerah POLO", price_flat: 10000 },
+      ],
+      unitPrice: 55000,
+      qty: 12,
+      unitLabel: "pcs",
+      totalPerUnit: 75000,
+      grandTotal: 900000,
+      productUrl: "https://jogloprint.id/produk/kaos-custom",
+      pricingModel: "sheet",
+    });
+
+    assert.ok(msg.includes("Kaos Sablon Custom"));
+    assert.ok(msg.includes("Opsi Tambahan (2 opsi terpilih):"));
+    assert.ok(msg.includes("Lengan Panjang (+Rp 10.000/pcs)"));
+    assert.ok(msg.includes("Kerah POLO (+Rp 10.000/pcs)"));
+    assert.ok(msg.includes("Total Tambahan: +Rp 20.000 / pcs"));
+    assert.ok(msg.includes("Rp 900.000"));
   });
 
   it("generateWhatsAppUrl: cleans formatting characters and normalizes 08 prefix to 62", () => {

@@ -5,6 +5,7 @@ export interface OrderItem {
   variantName: string;
   addonName: string;
   addonPrice: number;
+  selectedAddons?: Array<{ name: string; price_flat?: number }>;
   unitPrice: number;
   qty: number;
   unitLabel: string;

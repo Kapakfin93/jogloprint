@@ -6,6 +6,7 @@ import { ProductAddon, PricingEngine } from "@/lib/types/database";
 import {
   findApplicableTier,
   calculateTotalPrice,
+  calculateTotalAddons,
   calculateAreaPrice,
 } from "@/lib/services/pricing.service";
 
@@ -14,7 +15,8 @@ interface UseProductPricingParams {
   readonly variants: readonly VariantDetailItem[];
   readonly addons: readonly ProductAddon[];
   readonly selectedVariantId: string;
-  readonly selectedAddonId: string;
+  readonly selectedAddonId?: string;
+  readonly selectedAddonIds?: readonly string[];
   readonly qty: number;
   readonly lengthCm: number;
   readonly widthCm: number;
@@ -29,6 +31,7 @@ export function useProductPricing({
   addons,
   selectedVariantId,
   selectedAddonId,
+  selectedAddonIds,
   qty,
   lengthCm,
   widthCm,
@@ -43,7 +46,27 @@ export function useProductPricing({
   const selectedVariant = variants.find((v) => v.id === selectedVariantId) || defaultVariant;
 
   const defaultAddon = addons.find((a) => a.is_default) || addons[0] || null;
-  const selectedAddon = addons.find((a) => a.id === selectedAddonId) || defaultAddon;
+
+  const activeAddonIds = useMemo(() => {
+    if (selectedAddonIds !== undefined) {
+      return selectedAddonIds;
+    }
+    if (selectedAddonId) {
+      return [selectedAddonId];
+    }
+    return defaultAddon ? [defaultAddon.id] : [];
+  }, [selectedAddonIds, selectedAddonId, defaultAddon]);
+
+  const selectedAddons = useMemo(() => {
+    return addons.filter((a) => activeAddonIds.includes(a.id));
+  }, [addons, activeAddonIds]);
+
+  const selectedAddon = selectedAddons[0] || null;
+
+  const combinedAddonName = useMemo(() => {
+    if (selectedAddons.length === 0) return "Standar / Tanpa Tambahan";
+    return selectedAddons.map((a) => a.name).join(", ");
+  }, [selectedAddons]);
 
   const safeUnit = useMemo(() => {
     if (unitLabel) return unitLabel;
@@ -54,7 +77,7 @@ export function useProductPricing({
 
   const applicableTier = findApplicableTier(selectedVariant?.price_tiers || [], qty);
   const unitPrice = applicableTier?.price_per_unit || 0;
-  const addonFlat = selectedAddon?.price_flat || 0;
+  const addonFlat = useMemo(() => calculateTotalAddons(selectedAddons), [selectedAddons]);
 
   const areaCalc = useMemo(() => {
     if (!isArea) return null;
@@ -114,6 +137,8 @@ export function useProductPricing({
     selectedVariant,
     defaultAddon,
     selectedAddon,
+    selectedAddons,
+    combinedAddonName,
     safeUnit,
     applicableTier,
     unitPrice,

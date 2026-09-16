@@ -2,11 +2,17 @@ import { formatCurrency } from "./pricing.service";
 
 export const DEFAULT_WHATSAPP_NUMBER = "6281390286826";
 
+export interface SelectedAddonParam {
+  name: string;
+  price_flat?: number;
+}
+
 export interface OrderMessageParams {
   productName: string;
   variantName: string;
   addonName: string;
   addonPrice: number;
+  selectedAddons?: readonly SelectedAddonParam[];
   unitPrice?: number;
   qty: number;
   unitLabel?: string | null;
@@ -78,9 +84,25 @@ function formatSingleItemLines(params: OrderMessageParams, addonText: string, sa
     ];
   }
 
+  let addonLines: string[];
+  if (params.selectedAddons && params.selectedAddons.length > 1) {
+    addonLines = [
+      `Opsi Tambahan (${params.selectedAddons.length} opsi terpilih):`,
+      ...params.selectedAddons.map((a) => {
+        const itemPrice = (a.price_flat || 0) === 0 ? "Bawaan / Rp 0" : `+${formatCurrency(a.price_flat || 0)}`;
+        return `  - ${a.name} (${itemPrice}/${safeUnit})`;
+      }),
+      `Total Tambahan: +${formatCurrency(params.addonPrice)} / ${safeUnit}`,
+    ];
+  } else {
+    const isLaminate = params.productName.toLowerCase().includes("stiker") || params.addonName.toLowerCase().includes("laminasi");
+    const label = isLaminate ? "Laminasi" : "Opsi Tambahan";
+    addonLines = [`${label}: ${params.addonName} (${addonText}/${safeUnit})`];
+  }
+
   return [
     `Finishing: ${params.variantName}`,
-    `Laminasi: ${params.addonName} (${addonText}/${safeUnit})`,
+    ...addonLines,
     params.unitPrice ? `Harga Satuan: ${formatCurrency(params.unitPrice)} / ${safeUnit}` : "",
     `Jumlah: ${params.qty} ${safeUnit}`,
     `Estimasi Total: ${formatCurrency(params.totalPerUnit)} / ${safeUnit} x ${params.qty} = ${formatCurrency(params.grandTotal)}`
@@ -127,9 +149,20 @@ function formatMultiItemLines(item: MultiOrderItemParam, addonText: string, safe
     ];
   }
 
+  const isLaminate = item.productName.toLowerCase().includes("stiker") || item.addonName.toLowerCase().includes("laminasi");
+  const addonLabel = isLaminate ? "Laminasi" : "Opsi Tambahan";
+
+  const addonDisplay = item.selectedAddons && item.selectedAddons.length > 1
+    ? item.selectedAddons.map((a) => `${a.name} (+${formatCurrency(a.price_flat || 0)})`).join(", ")
+    : item.addonName;
+
+  const addonLine = item.selectedAddons && item.selectedAddons.length > 1
+    ? `• ${addonLabel}: ${addonDisplay} (Total: +${formatCurrency(item.addonPrice)})`
+    : `• ${addonLabel}: ${addonDisplay} (${addonText})`;
+
   return [
     `• Finishing/Varian: ${item.variantName}`,
-    `• Laminasi/Addon: ${item.addonName} (${addonText})`,
+    addonLine,
     `• Jumlah: ${item.qty} ${safeUnit}`
   ];
 }

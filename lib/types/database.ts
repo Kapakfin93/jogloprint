@@ -7,6 +7,7 @@ export type Json =
   | Json[];
 
 export type PricingEngine = "sheet" | "area" | "meter_lari" | "bundle";
+export type AddonSelectionMode = "single" | "multi";
 
 export interface Category {
   id: string;
@@ -14,6 +15,7 @@ export interface Category {
   name: string;
   description: string | null;
   pricing_engine: PricingEngine;
+  addon_selection_mode: AddonSelectionMode;
   cover_image_url: string | null;
   icon_url: string | null;
   display_order: number;
