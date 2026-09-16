@@ -19,6 +19,7 @@ erDiagram
         string name "Nama Kategori"
         string slug "URL slug"
         enum pricing_engine "sheet | area | meter_lari | bundle"
+        enum addon_selection_mode "single | multi (default: single)"
         int sort_order
     }
 
@@ -101,6 +102,20 @@ TOTAL HARGA PER SATUAN = [ HARGA VARIAN (Volume-Tiered) ] + [ TOTAL ADD-ON TERPI
   - *Banner MMT*: `Mata Ayam 4 Sudut (+Rp 0)`, `Selongsong Samping (+Rp 0)`, `Keling Mata Ayam Keliling (+Rp 5.000)`.
   - *Nota NCR*: `Nomorator Urut (+Rp 1.500)`, `Perforasi Sobek (+Rp 500)`.
 
+### C. Mode Pemilihan Add-on Kategori (`addon_selection_mode`)
+Kolom `addon_selection_mode` pada tabel `categories` menentukan bagaimana UI pemilih addon beroperasi bagi pembeli:
+
+| Mode | Perilaku UI | Logika Pemilihan | Kapan Digunakan? | Contoh Nyata Produk |
+| :--- | :--- | :--- | :--- | :--- |
+| **`single`** *(Default)* | Tombol Radio / Card Exclusive | **Mutually Exclusive** (Pilih salah satu, tidak bisa barengan) | Finishing yang secara fisik mustahil digabung (misal: laminasi doff vs glossy) | **Stiker Kromo A3+**: Pilih `Laminasi Glossy (+1.500)` ATAU `Laminasi Doff (+2.000)`. Memilih Doff otomatis melepas Glossy. |
+| **`multi`** | Checkbox Centang Hijau (`✓`) | **Akumulatif** (Bisa centang banyak, harga diakumulasi) | Fitur/aksesoris independen yang bisa digabung bersamaan | **Kaos Sablon DTF**: Pembeli bisa mencentang `Lengan Panjang (+10.000)` DAN `Kerah POLO (+10.000)` sekaligus. Total addon = +Rp 20.000. |
+
+> 🔒 **ATURAN INTEGRITAS DATABASE:**
+> Nilai `addon_selection_mode` dikunci per kategori (`categories.addon_selection_mode`).
+> - Mengubah mode ke `'multi'` pada kategori `kaos-jersey` **TIDAK** mengubah kategori lain.
+> - Kategori `stiker-label`, `banner-outdoor-uv`, `digital-print-a3-kertas`, dll. tetap `'single'` sehingga bebas dari risiko salah pilih finishing ganda.
+> - Jika di masa depan ada kategori baru yang butuh multi-centang (misal: *Jaket & Hoodie*, *Merchandise*), cukup set `addon_selection_mode = 'multi'` pada kategori tersebut di database/admin.
+
 ---
 
 ## 4. TATA CARA INPUT STEP-BY-STEP (ADMIN DASHBOARD)
@@ -154,6 +169,8 @@ TOTAL HARGA PER SATUAN = [ HARGA VARIAN (Volume-Tiered) ] + [ TOTAL ADD-ON TERPI
 
 Jika AI Agent atau skrip otomatis melakukan input/seeding data, gunakan payload struktur JSON standar berikut:
 
+### Contoh A: Produk Mode Single-Select (Kategori: `stiker-label` | `addon_selection_mode: "single"`)
+
 ```json
 {
   "category_slug": "stiker-label",
@@ -194,8 +211,52 @@ Jika AI Agent atau skrip otomatis melakukan input/seeding data, gunakan payload 
     }
   ],
   "addons": [
-    { "name": "Laminasi Doff", "price": 2000, "sort_order": 1 },
-    { "name": "Laminasi Glossy", "price": 2000, "sort_order": 2 }
+    { "name": "Tanpa Laminasi", "price": 0, "sort_order": 1, "is_default": true },
+    { "name": "Laminasi Doff", "price": 2000, "sort_order": 2, "is_default": false },
+    { "name": "Laminasi Glossy", "price": 2000, "sort_order": 3, "is_default": false }
+  ]
+}
+```
+
+### Contoh B: Produk Mode Multi-Select (Kategori: `kaos-jersey` | `addon_selection_mode: "multi"`)
+
+```json
+{
+  "category_slug": "kaos-jersey",
+  "product": {
+    "name": "Cetak Kaos Sablon DTF Custom (Cotton Combed)",
+    "slug": "kaos-sablon-dtf-custom",
+    "unit_label": "pcs",
+    "min_order_qty": 1,
+    "description": "Cetak kaos sablon DTF digital berkualitas tinggi bahan 100% Cotton Combed murni 30s & 24s.",
+    "specifications": [
+      { "key": "Bahan", "value": "Cotton Combed 30s / 24s Distro" },
+      { "key": "Teknologi", "value": "Direct to Film (DTF) High Resolution" },
+      { "key": "Finishing", "value": "Double Heat Press Oven" }
+    ],
+    "images": [
+      "https://res.cloudinary.com/jogloprint/image/upload/v1/kaos-dtf.jpg"
+    ],
+    "is_active": true
+  },
+  "variants": [
+    {
+      "name": "Area Cetak A4 1 Sisi (Combed 30s)",
+      "sort_order": 1,
+      "is_default": true,
+      "price_tiers": [
+        { "min_qty": 1, "max_qty": 5, "price_per_unit": 60000, "lead_time_days": 2 },
+        { "min_qty": 6, "max_qty": 12, "price_per_unit": 55000, "lead_time_days": 2 },
+        { "min_qty": 13, "max_qty": 49, "price_per_unit": 50000, "lead_time_days": 2 },
+        { "min_qty": 50, "max_qty": 99999, "price_per_unit": 45000, "lead_time_days": 3 }
+      ]
+    }
+  ],
+  "addons": [
+    { "name": "Lengan Panjang (Rib Karet)", "price": 10000, "sort_order": 1, "is_default": false },
+    { "name": "Kerah POLO (Wangki)", "price": 10000, "sort_order": 2, "is_default": false },
+    { "name": "Ukuran Jumbo XXL", "price": 5000, "sort_order": 3, "is_default": false },
+    { "name": "Ukuran Jumbo XXXL", "price": 10000, "sort_order": 4, "is_default": false }
   ]
 }
 ```
@@ -204,9 +265,10 @@ Jika AI Agent atau skrip otomatis melakukan input/seeding data, gunakan payload 
 
 ## 6. VALIDATION & ANTI-ERROR CHECKLIST
 
-Sebelum produk dipublikasikan, wajib checklist 5 poin ini:
+Sebelum produk dipublikasikan, wajib checklist 6 poin ini:
 - [ ] **Kategori Engine Cocok**: Produk $m^2$ tidak boleh masuk ke kategori `sheet`.
+- [ ] **Mode Addon Kategori Tepat**: Kategori yang butuh multi-centang (seperti `kaos-jersey`) wajib memiliki `addon_selection_mode = 'multi'`. Kategori eksklusif (seperti `stiker-label`) wajib `'single'`.
 - [ ] **Tier Harga Berurutan**: Tidak ada rentang yang terputus (contoh salah: 1-10 lalu 12-20).
-- [ ] **Tier Terakhir Ditutup**: Tier paling akhir diberi `max_qty: 99999` agar order dalam jumlah banyak tetap terhitung.
-- [ ] **Satuan Sesuai Logika**: `unit_label` sesuai dengan apa yang dimengerti pembeli (contoh: *buku* untuk nota, *lembar* untuk stiker).
+- [ ] **Tier Terakhir Ditutup**: Tier paling akhir diberi `max_qty: 99999` (atau `null` di Supabase) agar order dalam jumlah banyak tetap terhitung.
+- [ ] **Satuan Sesuai Logika**: `unit_label` sesuai dengan apa yang dimengerti pembeli (contoh: *buku* untuk nota, *lembar* untuk stiker, *pcs* untuk kaos).
 - [ ] **Status Aktif**: Master produk dan minimal 1 varian bertanda `is_active = true`.

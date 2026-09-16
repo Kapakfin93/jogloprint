@@ -28,6 +28,17 @@ Referensi cepat untuk agent yang membantu Joe mengisi data kategori/produk/foto.
 
 **Aturan:** 1 kategori = 1 engine, konsisten untuk semua produk di dalamnya. Kalau 1 lini bisnis punya 2 cara hitung berbeda (mis. DTF kaos per-pcs vs DTF roll per-meter), itu 2 KATEGORI terpisah, bukan 1 kategori campur engine.
 
+### Mode Pemilihan Add-on Kategori (`addon_selection_mode`)
+
+Kategori juga mengunci apakah opsi tambahan (add-on) boleh dicentang banyak atau hanya 1:
+
+| Mode | Perilaku UI | Contoh Kasus |
+| :--- | :--- | :--- |
+| **`single`** *(Default)* | Radio card (pilih salah satu, saling lepas) | **Stiker & Label**: Laminasi Glossy vs Doff (mustahil dipakai berbarengan). |
+| **`multi`** | Checkbox hijau `✓` (bisa pilih banyak, akumulatif) | **Kaos & Jersey**: Lengan Panjang (+10rb) DAN Kerah POLO (+10rb) bisa dipilih bersamaan. |
+
+*Catatan: Set `'multi'` HANYA pada kategori yang fiturnya independen dan bisa digabung.*
+
 ## 3. Varian & Tier Harga
 
 - Nama varian BEBAS (bukan dropdown tetap) — isi sesuai realita produk (Finishing untuk sheet, Lebar bahan untuk meter_lari, dst).
@@ -39,7 +50,9 @@ Referensi cepat untuk agent yang membantu Joe mengisi data kategori/produk/foto.
 ## 4. Add-on
 
 - Nama bebas, harga flat per unit (kecuali engine `area`, lihat #3).
-- Tandai 1 add-on sebagai default (biasanya "Tanpa Tambahan" / Rp0).
+- **Pada mode `single`:** Tandai 1 add-on sebagai default (biasanya "Tanpa Tambahan" / Rp0) agar kalkulator punya titik awal.
+- **Pada mode `multi`:** Seluruh add-on bisa diset `is_default = false` (opsional bebas centang) atau diset default jika memang fitur standar.
+- Kalkulator harga publik otomatis menggunakan fungsi `calculateTotalAddons` (penjumlahan seluruh opsi tercentang).
 - Kalau harga belum pasti, isi `Rp 0` DAN tulis di description: `"BELUM FINAL - harga asli menyusul dari Joe"` — JANGAN karang angka.
 
 ## 5. Upload Foto
