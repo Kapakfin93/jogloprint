@@ -153,8 +153,8 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             </div>
           </div>
 
-          {/* Section: Practical Sticker Yield Guide (Stiker Kemasan) */}
-          <ProductYieldGuide />
+          {/* Section: Practical Sticker Yield Guide (Hanya untuk kategori stiker) */}
+          {category.slug.includes("stiker") && <ProductYieldGuide />}
 
           {/* Section: Detailed Structured Specifications (2 Kolom) */}
           <ProductSpecs

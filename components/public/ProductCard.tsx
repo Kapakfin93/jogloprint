@@ -9,9 +9,9 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const finishingSummary =
-    product.variant_names.length > 0
-      ? product.variant_names.join(" - ")
-      : "Pilihan Finishing Tersedia";
+    product.variant_names.length > 2
+      ? `${product.variant_names.slice(0, 2).join(", ")} +${product.variant_names.length - 2} opsi`
+      : product.variant_names.join(" - ") || "Pilihan Finishing Tersedia";
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-lg transition-all duration-200 flex flex-col justify-between group">
