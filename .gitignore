@@ -46,6 +46,8 @@ scratch/
 doc_spec produck/
 doc_spec*/
 .agents/
+.claude/
+agent/
 skills-lock.json
 app/test-cloudinary/
 *.log
