@@ -4,16 +4,19 @@
 
 Membangun website katalog Joglo Print (Home → Kategori → Produk) + admin dashboard CRUD, database Supabase terpisah, deploy Vercel. Desain visual sudah final di Google Stitch (3 halaman: Home, Kategori Stiker & Label, Detail Produk Stiker Kromo A3+) — dipakai sebagai referensi visual, bukan sumber kode literal. Scope pilot: 1 kategori penuh (Stiker & Label) untuk membuktikan alur admin → database → frontend, sebelum direplikasi ke kategori lain.
 
+**Dokumen operasional terkait (baca sebelum kerja isi data):** `GUIDE_UPLOAD_KATEGORI_PRODUK.md` dan `GUIDE_CATALOG_INPUT_PROTOCOL.md` — panduan cepat alur input kategori/produk/varian/addon/foto untuk agent manapun di sesi manapun.
+
 ## Architecture Decisions
 
 - **Monorepo Next.js (App Router)**, publik + admin dalam 1 codebase.
 - **Supabase project baru**, terpisah total dari KasirGrafity.
 - **URL flat** (`/produk/{slug}`, bukan nested di bawah kategori) — supaya produk bisa pindah kategori tanpa merusak SEO.
-- **Finishing = varian bertingkat harga** (`product_variants` + `variant_price_tiers`); **Laminasi = add-on flat** (`product_addons`) — bukan varian penuh, supaya data entry admin ringan.
-- **Cloudinary** untuk foto (bukan Supabase Storage).
-- **Tanpa cart/checkout** — CTA "Pesan via WhatsApp" generate teks terstruktur berlabel tetap (Produk/Finishing/Laminasi/Jumlah/Harga/Link), disiapkan supaya kompatibel di-parsing bot WA di masa depan.
+- **Finishing = varian bertingkat harga** (`product_variants` + `variant_price_tiers`); **Laminasi/Add-on = flat atau proporsional tergantung engine** (`product_addons`).
+- **Cloudinary** untuk foto (bukan Supabase Storage), hash SHA-256 dihitung sebelum upload untuk audit trail & deteksi duplikat (lihat Task 18).
+- **Tanpa cart/checkout berbayar** — CTA "Pesan via WhatsApp" generate teks terstruktur berlabel tetap, plus "Daftar Pesanan" multi-item (Task 15) untuk gabung beberapa produk jadi 1 pesan WA. Disiapkan supaya kompatibel di-parsing bot WA di masa depan.
 - **Layout "dikunci" di kode** (hasil Stitch) — admin panel hanya CRUD data (teks, harga, foto), bukan page builder.
 - Skema disiapkan agar mudah ditambah tabel `orders` nanti (ekstensi masa depan untuk bot agentic) — tidak dibangun sekarang (YAGNI).
+- **Semua mutasi admin WAJIB lewat `requireAdminMutationClient()`** (lihat Risks table — Security Hardening RESOLVED) — tidak ada lagi bypass RLS tanpa verifikasi sesi.
 
 ### Addendum: Multi-Engine Pricing (diputuskan setelah audit arsitektur, menyusul Task 6)
 
@@ -25,232 +28,150 @@ Ditemukan kebutuhan nyata: tidak semua kategori Joglo Print dihitung per-lembar 
 - **`area`**: dihitung dari 2 dimensi (panjang×lebar cm) via `calculateAreaPrice()`, pure function terpisah di `pricing.service.ts`. Minimal order pakai `products.min_order_qty` (di-rename dari `min_order_area`). Add-on dihitung proporsional terhadap luas bahan terpakai (`billedAreaM2`), yaitu `billedAreaM2 * (pricePerM2 + addonFlat) * qty`.
 - **`meter_lari`**: dihitung dari 1 dimensi (panjang meter) via `calculateMeterLariPrice()`, pure function terpisah. **Lebar bahan TIDAK mempengaruhi harga** — cuma info di `specifications` (dikonfirmasi Joe, mengacu pricelist supplier: harga/meter sama untuk semua pilihan lebar). Varian (`product_variants`) untuk kategori ini tetap dipakai untuk axis Finishing (mis. "Obras + Tali Samping"), bukan lebar. Add-on dihitung flat per-meter: `(unitPrice + addonFlat) * lengthM`.
 - **Kolom `variant_price_tiers.price_per_unit` reinterpretasi kontekstual** sesuai `pricing_model` produk induknya (Rp/lembar, Rp/m², atau Rp/meter) — didokumentasikan via `COMMENT ON COLUMN` di database, WAJIB selalu join ke `products.pricing_model` sebelum menafsirkan nilai ini di query manapun.
-- **Kolom `product_addons.price_flat` reinterpretasi kontekstual** sesuai `pricing_model` produk induknya: untuk engine `area` bermakna Rp/m² (dikalikan `billedAreaM2` karena laminasi/bahan tambahan proporsional ke luas); untuk `sheet`/`bundle`/`meter_lari` bermakna flat nominal per satuan. Didokumentasikan via `COMMENT ON COLUMN public.product_addons.price_flat` di database.
+- **Kolom `product_addons.price_flat` reinterpretasi kontekstual** sesuai `pricing_model` produk induknya: untuk engine `area` bermakna Rp/m² (dikalikan `billedAreaM2`); untuk `sheet`/`bundle`/`meter_lari` bermakna flat nominal per satuan. Didokumentasikan via `COMMENT ON COLUMN public.product_addons.price_flat`.
+
+### Addendum: Addon Selection Mode (Task 20)
+
+Kategori Kaos & Jersey butuh kombinasi add-on yang bisa ditumpuk (mis. Lengan Panjang DAN Kerah Polo sekaligus) — beda dari Stiker yang addon-nya mutually exclusive (Laminasi Glossy ATAU Doff, tidak bisa dua-duanya).
+
+- Kolom baru `categories.addon_selection_mode` (`'single'` default, atau `'multi'`) — pola sama seperti `pricing_engine`, properti di level Kategori, dikonsumsi turunan oleh halaman produk (`category.addon_selection_mode`, BUKAN kolom di `products`).
+- `single`: radio card, exclusive (Stiker & Label dan semua kategori lain tetap begini, tidak berubah).
+- `multi`: checkbox, akumulatif — total addon = jumlah semua yang dicentang. HANYA di-set untuk kategori yang fiturnya genuinely independen/bisa digabung (saat ini: Kaos & Jersey).
+- `pricing.service.ts`: `calculateTotalAddons()` menerima array addon terpilih, akumulasi total (test case boundary: array kosong/null, 1 item, banyak item, campur Rp0/null/undefined — lihat Task 17).
+- `AddonSelector.tsx`: render checkbox hijau kalau mode `multi`, radio card kalau `single`. Badge harga add-on yang description-nya mengandung "BELUM FINAL" otomatis tampil "Hub. CS" (bukan "+Rp 0") supaya tidak menyesatkan pengunjung mengira gratis — badge diletakkan di BAWAH judul (bukan sejajar) supaya nama varian/finishing panjang tidak ter-truncate.
+- Terverifikasi: regresi Stiker & Label (tetap single-select, addon gratis asli tetap tampil "+Rp 0 (Bawaan)" normal) dan Kaos & Jersey (multi-select akumulatif) — keduanya diuji dengan bukti screenshot nyata.
+- Dokumentasi lengkap tabel single vs multi ada di `GUIDE_CATALOG_INPUT_PROTOCOL.md` bagian C dan `GUIDE_UPLOAD_KATEGORI_PRODUK.md`.
 
 ## Task List
 
 ### Phase 1: Foundation
 
-- [x] **Task 1 — Setup Supabase project + schema.** Buat project Supabase baru. Buat tabel: `categories`, `products`, `product_variants`, `variant_price_tiers`, `product_addons`, `product_images`, `business_info`. Aktifkan RLS: publik read-only, write hanya service role/owner.
-  - Acceptance: semua tabel dibuat, RLS policy publik READ berhasil, WRITE dari anon key ditolak. (VERIFIED)
-  - Verification: test manual via Supabase SQL editor + coba insert pakai anon key (harus gagal). (VERIFIED)
-  - Dependencies: None. Scope: S.
-
-- [x] **Task 2 — Setup Next.js repo skeleton.** Init project Next.js App Router + Tailwind, koneksi ke Supabase (client & server helper di `lib/supabase/`), koneksi Cloudinary (upload helper), deploy kosong pertama ke Vercel.
-  - Acceptance: `npm run dev` jalan, halaman kosong ter-deploy ke Vercel URL sementara, env var Supabase & Cloudinary terbaca. (VERIFIED)
-  - Verification: `npm run build` sukses; buka URL Vercel, tidak error. (VERIFIED)
-  - Dependencies: Task 1. Scope: S.
+- [x] **Task 1 — Setup Supabase project + schema.** (VERIFIED)
+- [x] **Task 2 — Setup Next.js repo skeleton.** (VERIFIED)
 
 ### Checkpoint: Foundation
 
-- [x] Supabase & Next.js saling terhubung (test query dummy berhasil) (VERIFIED)
+- [x] Supabase & Next.js saling terhubung (VERIFIED)
 - [x] Deploy pipeline Vercel jalan otomatis dari git push (VERIFIED)
 
 ### Phase 2: Core Features (Vertical Slice — Kategori Stiker & Label)
 
-- [x] **Task 3 — Admin: CRUD Kategori.** Halaman `/admin/kategori` (list + form tambah/edit). Auth guard Supabase Auth (1 akun owner).
-  - Acceptance: admin bisa login, tambah kategori "Stiker & Label" dengan slug auto-generate, muncul di list. (VERIFIED)
-  - Verification: manual — buat 1 kategori, cek tersimpan di Supabase. (VERIFIED)
-  - Dependencies: Task 2. Scope: M.
-
-- [x] **Task 4 — Admin: CRUD Produk + Foto (Cloudinary).** Halaman `/admin/produk` — form nama, kategori, deskripsi, spesifikasi (markdown), upload foto multi ke Cloudinary.
-  - Acceptance: admin bisa tambah produk "Stiker Kromo A3+" dengan minimal 1 foto ter-upload. (VERIFIED)
-  - Verification: manual — cek foto muncul di Cloudinary dashboard & URL tersimpan di `product_images`. (VERIFIED)
-  - Dependencies: Task 3. Scope: M.
-
-- [x] **Task 5 — Admin: CRUD Varian (Finishing) + Tier Harga.** Halaman `/admin/produk/[id]/varian` — tambah/hapus varian dengan NAMA BEBAS (bukan pilihan tetap/dropdown fixed) karena tiap lini produk punya pola finishing berbeda: Stiker (Kiss Cut/Die Cut/Tanpa Potong), Banner (Rangka+Mata Ayam/Tanpa Rangka), Sablon DTF (1 Sisi/2 Sisi), Nota (1 Ply/2 Ply/3 Ply), dst. Tiap varian punya tabel tier qty×harga sendiri (tambah/hapus baris), pola sama seperti `ProductSpecificationEditor` di Task 4 (dinamis, generik, reusable lintas kategori).
-  - Acceptance: minimal 1 produk pilot ("Stiker Kromo A3+") punya 3 varian dengan nama sesuai data nyata, masing-masing minimal 4 baris tier harga. UI TIDAK mengandung nama varian ter-hardcode di kode (mis. tidak ada `enum`/dropdown tetap berisi "Kiss Cut"). (VERIFIED)
-  - Verification: manual — input data dummy dengan nama varian custom di luar contoh stiker (mis. coba tambah varian "Test Custom Finishing"), cek tersimpan benar di `variant_price_tiers` tanpa error. (VERIFIED)
-  - Dependencies: Task 4. Scope: M.
-
-- [x] **Task 6 — Admin: CRUD Add-on (Laminasi).** Halaman `/admin/produk/[id]/addon` — tambah add-on (nama + harga tambahan flat).
-  - Acceptance: 1 produk punya 3 add-on (Tanpa/Glossy/Doff) dengan harga tambahan masing-masing. (VERIFIED)
-  - Verification: manual cek tabel `product_addons`. (VERIFIED)
-  - Dependencies: Task 4. Scope: S.
-
-- [x] **Task 7 — Halaman publik: Home.** Implementasi sesuai desain Stitch (revisi per-kategori section). Query kategori yang punya produk + 3-4 produk preview per kategori.
-  - Acceptance: kategori tanpa produk tidak muncul; kategori dengan produk tampil dengan preview benar. (VERIFIED)
-  - Verification: manual — matikan sementara 1 produk, cek section kategori ikut hilang kalau produk kosong. (VERIFIED)
-  - Dependencies: Task 5, 6 (butuh data nyata untuk uji). Scope: M.
-
-- [x] **Task 8 — Halaman publik: Kategori.** Implementasi `/kategori/[slug]` sesuai desain Stitch — grid semua produk dalam kategori.
-  - Acceptance: halaman `/kategori/stiker-label` menampilkan seluruh produk yang diinput admin. (VERIFIED)
-  - Verification: manual cross-check jumlah produk di admin vs yang tampil. (VERIFIED)
-  - Dependencies: Task 5, 6. Scope: S.
-
-- [x] **Task 9a — Detail Produk: layout statis + pemilih Finishing.** Implementasi `/produk/[slug]` — galeri foto (thumbnail+gallery Cloudinary), nama, deskripsi, render `specifications` (array label/value, 2 kolom sesuai desain Stitch), pemilih varian Finishing (dinamis dari `product_variants`, default = varian `is_default=true`), tabel tier harga varian yang sedang dipilih (update saat varian diganti).
-  - Acceptance: ganti pilihan Finishing → tabel tier harga di bawahnya berubah sesuai varian yang dipilih (belum ada kalkulasi qty/addon di tahap ini). (VERIFIED)
-  - Dependencies: Task 5. Scope: M.
-
-- [x] **Task 9b — Detail Produk: pemilih Add-on.** Tambahkan pemilih Laminasi (dinamis dari `product_addons`, default = addon `is_default=true`), tampilkan harga tambahan tiap opsi.
-  - Acceptance: ganti pilihan add-on mengubah tampilan biaya tambahan yang akan dipakai di kalkulasi Task 9c. (VERIFIED)
-  - Dependencies: Task 6, 9a. Scope: S.
-
-- [x] **Task 9c — Detail Produk: input qty + kalkulasi total harga live.** Input jumlah pesanan (qty), panggil `findApplicableTier()` dari `pricing.service.ts` untuk cari tier sesuai qty pada varian terpilih, lalu `calculateTotalPrice()` untuk total akhir (tier+addon)×qty. WAJIB reuse fungsi dari pricing.service.ts, TIDAK boleh menulis ulang logic kalkulasi di komponen.
-  - Acceptance: perubahan qty/finishing/addon menghasilkan total harga yang benar secara matematis, diverifikasi manual minimal 4 kombinasi berbeda (dicatat di laporan: input → hasil tampilan → hasil hitung manual, harus sama persis). (VERIFIED)
-  - Verification: manual — 4 kombinasi (mis. Kiss Cut+Tanpa Laminasi qty 5; Kiss Cut+Glossy qty 50; Die Cut+Doff qty 120; Tanpa Potong+Tanpa Laminasi qty 1). (VERIFIED)
-  - Dependencies: Task 9b. Scope: M.
-
-- [x] **Task 10 — CTA WhatsApp terstruktur.** Komponen `WhatsAppCTA` generate teks pre-filled (label tetap) dari state pilihan + `business_info.whatsapp_number`, buka `wa.me`.
-  - Acceptance: klik CTA membuka WA dengan teks sesuai template yang sudah disepakati, termasuk link produk. (VERIFIED)
-  - Verification: manual — klik, cek teks di WA terbuka sesuai format. (VERIFIED)
-  - Dependencies: Task 9. Scope: S.
+- [x] **Task 3 — Admin: CRUD Kategori.** (VERIFIED)
+- [x] **Task 4 — Admin: CRUD Produk + Foto (Cloudinary).** (VERIFIED)
+- [x] **Task 5 — Admin: CRUD Varian (Finishing) + Tier Harga.** Nama varian BEBAS, tidak ter-hardcode. (VERIFIED)
+- [x] **Task 6 — Admin: CRUD Add-on (Laminasi).** (VERIFIED)
+- [x] **Task 7 — Halaman publik: Home.** (VERIFIED)
+- [x] **Task 8 — Halaman publik: Kategori.** (VERIFIED)
+- [x] **Task 9a — Detail Produk: layout statis + pemilih Finishing.** (VERIFIED)
+- [x] **Task 9b — Detail Produk: pemilih Add-on.** (VERIFIED)
+- [x] **Task 9c — Detail Produk: input qty + kalkulasi total harga live.** 4 kombinasi teruji cocok persis hitungan manual. (VERIFIED)
+- [x] **Task 10 — CTA WhatsApp terstruktur.** (VERIFIED)
 
 ### Checkpoint: Core Features
 
-- [x] Alur end-to-end jalan: admin input produk baru → langsung muncul di Home, Kategori, dan Detail Produk → klik pesan → WA terbuka dengan teks benar (VERIFIED)
-- [x] Review bareng Joe sebelum lanjut ke Phase 3 (VERIFIED)
+- [x] Alur end-to-end admin→publik→WA jalan (VERIFIED)
+- [x] Review bareng Joe sebelum Phase 3 (VERIFIED)
 
 ### Phase 3: Polish & SEO
 
-- [x] **Task 11 — Admin: form Info Bisnis.** Halaman `/admin/info-bisnis` — alamat, jam buka per hari (bukan "24 jam"), nomor WA, area pengiriman.
-  - Acceptance: data ini dipakai otomatis di footer semua halaman + JSON-LD. (VERIFIED)
-  - Dependencies: Task 2. Scope: S.
-
-- [x] **Task 12 — SEO: JSON-LD & meta tags.** Pasang `LocalBusiness` / `PrintingService` schema di `app/layout.tsx`, `Product` & `Offer` schema di `app/produk/[slug]`, serta `BreadcrumbList` schema pada kategori & produk via `components/seo/JsonLd.tsx`. Title & meta description dibuat dinamis via `generateMetadata` dengan format localized Demak, canonical URL, dan OpenGraph. (VERIFIED)
-  - Acceptance: Tag `<title>`, `<meta name="description">`, canonical URL, dan script JSON-LD ter-render valid pada response HTML halaman publik. (VERIFIED)
-  - Verification: Test live endpoint via `scratch/test_seo_tags.js` — terverifikasi 200 OK pada halaman kategori & produk. (VERIFIED)
-  - Dependencies: Task 7, 8, 9, 11. Scope: M.
-
-- [x] **Task 13 — Sitemap & robots.txt.** `app/sitemap.ts` auto-generate dinamis dari database Supabase (`lib/repositories/seo.repository.ts`), serta `app/robots.ts` memproteksi rute `/admin/` dan menautkan sitemap. (VERIFIED)
-  - Acceptance: `/sitemap.xml` berisi seluruh URL kategori & produk aktif dengan timestamp `lastmod` dan priority; `/robots.txt` valid memblokir crawler ke admin. (VERIFIED)
-  - Verification: Request langsung ke `http://localhost:3000/sitemap.xml` dan `/robots.txt` berhasil (HTTP 200 OK). (VERIFIED)
-  - Dependencies: Task 7, 8, 9. Scope: XS.
+- [x] **Task 11 — Admin: form Info Bisnis.** (VERIFIED)
+- [x] **Task 12 — SEO: JSON-LD & meta tags.** (VERIFIED)
+- [x] **Task 13 — Sitemap & robots.txt.** (VERIFIED)
 
 ### Checkpoint: Complete (Pilot Kategori Stiker & Label)
 
-- [x] Semua acceptance criteria Task 1-13 terpenuhi (Task 12 & 13 selesai & terverifikasi) (VERIFIED)
-- [ ] Domain final dibeli & disambungkan (kalau sudah diputuskan)
-- [x] Siap direplikasi ke kategori Wave 1 lainnya (tinggal input data lewat admin, tanpa kode baru) (VERIFIED)
+- [x] Semua acceptance criteria Task 1-13 terpenuhi (VERIFIED)
+- [ ] Domain final dibeli & disambungkan — **masih `jogloweb.vercel.app`, DNS `jogloprint.id` belum diarahkan (dikonfirmasi via probe jaringan)**
+- [x] Siap direplikasi ke kategori Wave 1 lainnya (VERIFIED)
 
 ## Wave 1 — Perluasan di Luar Rencana Awal
 
-Dokumentasi fitur dan katalog yang diputuskan langsung oleh Joe dalam iterasi Wave 1 di luar rencana awal:
+1. **`home_banners` (`/admin/banners`)** — slider promo Home Hero. Kolom: id, title, subtitle, image_url, link_url, display_order, is_active. RLS: publik SELECT is_active=true, write admin-only.
+2. **`/admin/panduan` & `GUIDE_CATALOG_INPUT_PROTOCOL.md`** — SOP visual input katalog di dalam dashboard.
+3. **Kategori "Lanyard & ID Card"** — produk `id-card-pvc-custom`, PVC 54×86mm, step 5pcs, min 25pcs. 1 Muka: 8rb (min)/5rb (grosir). 2 Muka: 9rb (min)/6rb (grosir). Add-on: Tanpa Tali (Rp0), Tambah Tali (+5rb).
 
-1. **Tabel & Manajemen `home_banners` (`/admin/banners`)**:
-   - **Tujuan:** Mengelola slider promo dinamis di Home Hero (mengadopsi referensi layout AnugerahPrint).
-   - **Kolom Utama:** `id`, `title`, `subtitle`, `image_url`, `link_url`, `display_order`, `is_active`, `created_at`.
-   - **RLS Policy:** Publik `SELECT` (hanya banner yang `is_active = true`), Write/CRUD hanya untuk admin terautentikasi (`admin_users`).
+### [x] Task 14 — Admin: Tombol Preview Publik. (VERIFIED, commit `af8a887`)
 
-2. **Panduan Visual Admin & Protokol Input (`/admin/panduan` & `GUIDE_CATALOG_INPUT_PROTOCOL.md`)**:
-   - **Tujuan:** Standarisasi visual dan SOP format pengisian katalog bagi admin/operator (perbedaan pengisian stiker, spanduk meteran, nota ply, sablon DTF, buku yasin, dsb.) langsung di dashboard tanpa perlu membuka file markdown teknis.
+### [x] Task 15 — Daftar Pesanan Sementara (Multi-Item WA Composer). Client-side, localStorage, tanpa tabel DB baru. (VERIFIED, commit `af8a887`)
 
-3. **Kategori "Lanyard & ID Card" (`lanyard-id-card`)**:
-   - **Produk Baru:** `id-card-pvc-custom` (ID Card PVC Custom).
-   - **Spesifikasi:** Bahan PVC, ukuran standar 54 × 86 mm, print full color, order kelipatan (step) 5 pcs, min order 25 pcs.
-   - **Struktur Harga Tiering:**
-     - Varian 1 Muka: Tier min 25 pcs = Rp 8.000, Tier grosir (> 25 pcs) = Rp 5.000.
-     - Varian 2 Muka: Tier min 25 pcs = Rp 9.000, Tier grosir (> 25 pcs) = Rp 6.000.
-     - Add-on: Tanpa Tali/Lobang (Rp 0), Tambah Tali Lanyard (+Rp 5.000).
+### [x] Task 16 — Dead Code & Dependency Pruning Audit. `lucide-react` & `next-cloudinary` di-uninstall, 0 sisa import. (VERIFIED)
+
+### [x] Task 17 — Robustness Testing Suite. `test/` pakai `node:test` bawaan, `npm test` = 3 suites/14 test (termasuk `calculateTotalAddons` multi-select). (VERIFIED)
+
+### [x] Task 18 — Hash Audit Trail & Deteksi Duplikat Foto. `product_images.file_hash` (SHA-256), peringatan non-blocking kalau ada duplikat. (VERIFIED)
+
+### [x] Task 19 — Redesign Navigasi PublicHeader & Mobile Drawer. Desktop: 5 kategori + dropdown "Lainnya". Mobile: drawer full-list. Section ikon kategori Home tetap dipertahankan (keputusan eksplisit Joe). (VERIFIED)
+
+### [x] Task 20 — Multi-Select Add-on per Kategori. Lihat Addendum di atas. (VERIFIED)
+
+### [x] Task 21 — Kategori Cetak Buku & Majalah (SEO Landing Cluster & Watermarked Portofolio).
+- Dibuat kategori baru `Cetak Buku & Majalah` (`cetak-buku-majalah`), `pricing_engine: 'bundle'`, satuan `eksemplar`, `addon_selection_mode: 'multi'`, display order 15.
+- 6 Master Produk: buku-tahunan-wisuda, booklet-company-profile, buku-modul-lks-diktat, majalah-buletin-komunitas, buku-biografi-novel-indie, buku-laporan-dinas-sop.
+- 7 Foto Asli Portofolio Pemkab/DPRD/BLK Demak diberi watermark logo resmi Joglo Print (`process_watermark_photos.py`), diunggah ke Cloudinary, dan di-link ke Produk No. 3 (3 foto) & Produk No. 6 (4 foto). (VERIFIED)
+
+### [x] Task 22 — Kategori Khusus Map Ijazah & Raport (Single-Select Add-on & SEO Landing).
+- Kategori `Perlengkapan Bisnis & Kantor` dikembalikan ke `addon_selection_mode: 'multi'` agar add-on Notebook (spiral kawat + cetak logo + laminasi) tetap bisa dicentang banyak secara akumulatif.
+- Dibuat kategori baru khusus: `Map Ijazah & Raport` (`map-ijazah-raport`), `pricing_engine: 'sheet'`, satuan `pcs`, `addon_selection_mode: 'single'` (Radio Card exclusive), `display_order: 16`.
+- Folder spesifikasi & aset dipindahkan ke root kategori khusus: `doc_spec produck/map_ijazah_raport/` (`asset/`, `asset_foto/`, `spec_map_ijazah_raport.md`, `PRICELIST_MAP_IJAZAH_RAPORT.xlsx`).
+- Produk `Map Ijazah & Raport Custom Emboss Foil Emas` (`map-ijazah-raport`) dipindahkan ke kategori baru ini:
+  - 3 Varian: Standard (Rp 15.000), Medium (Rp 22.000), Premium (Rp 35.000).
+  - 3 Tier Diskon Grosir: 1-50 pcs (Normal), 51-200 pcs (-Rp 1.000), 201+ pcs (-Rp 2.500).
+  - 4 Addon Isian Plastik Doff (Single-Select): 2 lembar (Free), 4 lembar (+Rp 2.000), 6 lembar (+Rp 4.000), 10 lembar (+Rp 8.000).
+- Terverifikasi via automated tests (14/14 PASS) dan visual browser testing. (VERIFIED)
+
+### Housekeeping & Data Cleanup Pilot
+
+- [x] Nomor WhatsApp resmi (0813-9028-6826) di seluruh fallback code & DB. (VERIFIED)
+- [x] Data uji coba ("Test Custom Finishing", dll) dibersihkan dari Stiker Kromo A3+. (VERIFIED)
+- [x] SSR Hydration Elimination (`useSyncExternalStore`, canonical URL) — 0 console warning. (VERIFIED)
+- [x] Badge "Hub. CS" untuk addon berdeskripsi "BELUM FINAL" (bukan "+Rp 0" polos) + fix layout judul terpotong di `AddonSelector.tsx`. (VERIFIED)
+
+## STATUS TERBUKA SAAT INI (per pengecekan terakhir)
+
+- [ ] **Addon Spanduk Kain & Textile masih Rp0 "BELUM FINAL"** (Obras+Tali, Jahit Lipat, Potong Bersih — 3 produk × 3 addon). UI sudah aman (tampil "Hub. CS", bukan "gratis"), tapi harga asli belum diisi Joe.
+- [ ] `<img>` biasa masih dipakai di 7 file (ProductCard, HomeCategoryIcons, HomeHero, ProductThumbnail, ProductImageUploader, CategoryFormModal, BannersAdminClient) — cuma `ProductGallery.tsx` yang sudah pakai `<Image />`. Lihat Pre-Launch Checklist.
+- [ ] Domain `jogloprint.id` belum tersambung (DNS belum diarahkan).
+- [ ] Repo GitHub masih **PUBLIC** — wajib private sebelum go-live.
+- [x] Security Hardening (admin mutation bypass) — RESOLVED, lihat Risks table.
+- [x] Multi-select addon — sudah teruji end-to-end di Kaos & Jersey oleh Joe.
 
 ## Pre-Launch Checklist (cek sebelum situs live publik / repo private)
 
-- [ ] Verifikasi semua gambar produk/kategori pakai komponen `<Image />` Next.js (bukan `<img>` biasa) — auto WebP/AVIF + resize, penting untuk skor Core Web Vitals (LCP).
-- [x] Task 12 & 13 selesai (metadata dinamis, Schema.org JSON-LD, sitemap dinamis & robots.txt) — SELESAI & TERVERIFIKASI. (VERIFIED)
-- [ ] Repo GitHub diubah ke Private (lihat "Catatan Repo").
+- [ ] Kosongkan Daftar Pesanan (localStorage) di browser kerja — Joe sengaja memakainya sebagai log pembanding template WA antar kategori selama testing Wave 1 (BUKAN sampah/bug, jangan dihapus sebelum go-live tanpa izin Joe). WAJIB dikosongkan sebelum situs benar-benar publik.
+- [ ] Ganti 7 file `<img>` → `<Image />` Next.js (lihat daftar di "Status Terbuka").
+- [x] Task 12 & 13 selesai (SEO). (VERIFIED)
+- [ ] Repo GitHub diubah ke Private.
 - [ ] Domain final dibeli & disambungkan.
 
 ## Backlog Keamanan (optional, bukan blocker launch)
 
-- **Cloudflare Turnstile + WAF untuk halaman admin**: berguna kalau nanti ada indikasi serangan/brute-force nyata. Belum perlu sekarang (1 admin, RLS+Auth sudah diaudit ketat). Revisit kalau ada sinyal ancaman nyata.
-- **TIDAK diadopsi**: menyembunyikan URL admin (`/admin` → path acak) — ini security-through-obscurity, bukan proteksi nyata. Proteksi sesungguhnya sudah ada lewat Supabase Auth + `admin_users` + RLS yang sudah diaudit tuntas.
+- **Cloudflare Turnstile + WAF admin**: revisit kalau ada sinyal ancaman nyata, belum perlu sekarang.
+- **TIDAK diadopsi**: sembunyikan URL `/admin` — security-through-obscurity, proteksi asli sudah lewat Supabase Auth + `admin_users` + RLS + `requireAdminMutationClient()`.
 
 ## Catatan Repo
 
-- Repo GitHub (`Kapakfin93/jogloprint`) sengaja **PUBLIC** untuk sementara (fase pre-build/audit), supaya bisa diverifikasi langsung tanpa akses MCP. **WAJIB diubah ke Private sebelum Task 12-13** (SEO/go-live) — jangan lupa cek ini sebelum publikasi resmi.
+- Repo GitHub (`Kapakfin93/jogloprint`) sengaja **PUBLIC** untuk fase pre-build/audit (supaya bisa diverifikasi langsung). **WAJIB diubah ke Private sebelum go-live.**
 
-## Backlog (belum prioritas, dicatat supaya tidak hilang)
+## Backlog (belum prioritas)
 
-- **SKU auto-generate**: saat ini manual/NULL, belum ada generator otomatis. Tidak urgent — kolom `sku` belum dipakai logic manapun (barcode/integrasi fisik belum ada).
-- **Uji nyata parallel deletion**: klaim "aman via ACID transaction" masih argumen teoretis, belum dibuktikan dengan tes 2 tab admin bersamaan. Risiko rendah untuk 1 admin, revisit kalau ada lebih dari 1 admin nanti.
-- **Live Preview Versi B** (real-time sync sambil mengetik, sebelum simpan): ditunda — Versi A (tombol buka halaman publik setelah simpan) dikerjakan sekarang, lihat Task 14.
+- **SKU auto-generate**: manual/NULL, belum urgent.
+- **Uji nyata parallel deletion**: klaim "aman via ACID" masih teoretis, belum dites 2 tab bersamaan. Risiko rendah untuk 1 admin.
+- **Live Preview Versi B** (real-time sambil mengetik): ditunda, Versi A (Task 14) sudah cukup.
 
-### [x] Task 14 — Admin: Tombol Preview Publik (Selesai & Terverifikasi)
+## Phase 4 (FUTURE — sesi perencanaan terpisah, TIDAK dikerjakan sekarang)
 
-Tambahkan tombol "Lihat di Halaman Publik" di `ProductList.tsx` (tiap baris) dan di form edit produk — buka `/produk/[slug]` di tab baru. Kalau produk berstatus non-aktif, buka tetap boleh (khusus akses dari admin, bukan publik) ATAU tampilkan pesan "Aktifkan dulu untuk preview" — pilih salah satu, agent boleh tentukan yang lebih simpel.
-
-- Acceptance: klik tombol dari admin → halaman publik produk terbuka tab baru, data sesuai yang tersimpan. (VERIFIED)
-- Dependencies: Task 9 (halaman produk publik sudah ada). Scope: XS.
-- Status: **SELESAI (commit `af8a887`)**.
-
-### [x] Task 15 — Daftar Pesanan Sementara (Multi-Item WA Composer) (Selesai & Terverifikasi)
-
-Bukan cart/checkout (tidak ada pembayaran) — cuma cara kumpulkan beberapa produk jadi 1 pesan WA terstruktur. Client-side saja (React Context + localStorage), TANPA tabel database baru.
-
-- Tombol "Pesan via WhatsApp Sekarang" (existing, per-produk) TETAP ADA — tambahkan tombol baru "Tambah ke Daftar Pesanan" berdampingan. (VERIFIED)
-- Floating badge (ikon + jumlah item) site-wide → klik buka panel daftar item (tiap item: produk, varian, addon, qty, subtotal, tombol hapus). (VERIFIED)
-- Tombol "Kirim Semua via WhatsApp" di panel: generate 1 pesan terstruktur — daftar item bernomor (format label sama seperti template 1-item: Produk/Finishing/Addon/Jumlah/Harga), ditutup baris "TOTAL KESELURUHAN". (VERIFIED)
-- Acceptance: tambah 2+ produk beda kategori ke daftar, kirim, 1 pesan WA berisi rincian semua item + total benar. (VERIFIED)
-- Dependencies: Task 10. Scope: M.
-- Status: **SELESAI & TERVERIFIKASI E2E (commit `af8a887`)**.
-
-### [x] Task 16 — Dead Code & Dependency Pruning Audit (Selesai & Terverifikasi)
-
-Audit dependensi dan kode tidak terpakai untuk menjaga codebase tetap ramping, ringan, dan zero-bloat.
-
-- Audit komprehensif menggunakan scan tool dan grep manual untuk dependensi `lucide-react` dan `next-cloudinary`.
-- Seluruh ikon dipastikan 100% menggunakan SVG native (`<svg>` inline).
-- Seluruh rendering gambar produk menggunakan `lib/services/image-url.service.ts` + `<Image />` Next.js native.
-- Uninstall `lucide-react` dan `next-cloudinary` dari `package.json`.
-- Acceptance: 0 import sisa di seluruh repository, bundle terbebas dari library ikon eksternal, `npm run build` sukses 0 error. (VERIFIED)
-- Status: **SELESAI & TERVERIFIKASI**.
-
-### [x] Task 17 — Robustness Testing Suite (Selesai & Terverifikasi)
-
-Implementasi test suite unit murni menggunakan test runner bawaan `node:test` tanpa dependensi berat (vitest/jest).
-
-- Pembuatan `test/services-robustness.test.ts` untuk memverifikasi logic inti di `pricing.service.ts` dan `whatsapp-message.service.ts`.
-- Pengujian kondisi batas ekstrim: `qty=0`, `qty` negatif/float, tiers kosong/null, dimensi 0/negatif pada engine `area` dan `meter_lari`, addon null/undefined, dan fallback `qty` melampaui seluruh tier.
-- Pembersihan nomor telepon WA dan format pesan multi-item.
-- Acceptance: 10/10 test case lulus dalam <400ms, test dapat dijalankan dengan perintah standar `npm test`. (VERIFIED)
-- Status: **SELESAI & TERVERIFIKASI**.
-
-### [x] Task 18 — Hash Audit Trail & Deteksi Duplikat Foto (Selesai & Terverifikasi)
-
-Audit trail integritas file gambar produk berbasis cryptographic hash SHA-256 untuk mencegah duplikasi upload.
-
-- Penambahan kolom `file_hash VARCHAR(64)` pada tabel `product_images` via migrasi database Supabase (`20260916000009_add_file_hash_to_product_images.sql`).
-- Perhitungan hash SHA-256 pada server action `app/actions/upload.action.ts` sebelum gambar dikirim ke Cloudinary.
-- Deteksi otomatis hash serupa di database; jika ditemukan kecocokan, sistem menyertakan peringatan duplikat dengan nama produk terkait.
-- Acceptance: Migrasi database sukses, upload gambar baru menghasilkan hash yang valid, upload ulang gambar identik memunculkan duplicate warning. (VERIFIED)
-- Status: **SELESAI & TERVERIFIKASI**.
-
-### [x] Task 19 — Redesign Navigasi PublicHeader & Mobile Drawer (Selesai & Terverifikasi)
-
-Redesign navigasi kategori pada navbar publik agar tetap rapi saat jumlah kategori bertambah banyak di masa depan.
-
-- **Desktop (>=768px):** Menampilkan 5 kategori pertama (urut `display_order`) secara inline, sisanya dikelompokkan ke dropdown "Lainnya ▾" via komponen terpisah `components/public/CategoryDropdown.tsx`.
-- **Mobile (<768px):** Mengganti deretan kategori dengan 1 tombol "Kategori" (hamburger) yang membuka slide-over drawer via `components/public/CategoryDrawer.tsx` berisi seluruh daftar kategori lengkap.
-- Section grid ikon kategori di halaman Home tetap dipertahankan sesuai keputusan arsitektur.
-- Batasan modularitas: `PublicHeader.tsx` (118 baris), `CategoryDropdown.tsx` (84 baris), dan `CategoryDrawer.tsx` (119 baris) — semuanya mematuhi aturan <200 baris/file.
-- Acceptance: Navigasi berfungsi mulus di Home, Kategori, dan Detail Produk pada resolusi Desktop dan Mobile. (VERIFIED)
-- Status: **SELESAI & TERVERIFIKASI**.
-
-### Housekeeping & Data Cleanup Pilot (Selesai — Sep 2026)
-- [x] **Nomor WhatsApp Resmi**: Database `business_info` dan seluruh fallback code di-update dari placeholder `628123456789` ke nomor resmi `0813-9028-6826` (`6281390286826`). (VERIFIED)
-- [x] **Pembersihan Data Audit Teknis**: Varian `"Test Custom Finishing"` dan add-on `"Packaging Box & Wrap Eksklusif"` pada Stiker Kromo A3+ telah dihapus bersih dari database Supabase. (VERIFIED)
-- [x] **SSR Hydration Elimination**: Refaktor `OrderListContext.tsx` menggunakan `useSyncExternalStore` dan standardisasi canonical URL pada `ProductDetailClient.tsx` — 0 console warning/error di browser mobile dan desktop. (VERIFIED)
-
-### Phase 4 (FUTURE — butuh sesi perencanaan terpisah, TIDAK dikerjakan sekarang)
-
-**Sistem Akun & Login Pelanggan** — tujuan: filter pelanggan yang niat order (disebut Joe). Pertanyaan yang belum terjawab, perlu dibahas di sesi khusus sebelum ada task/schema:
-
-- Data apa yang diminta saat daftar (nama, HP, email)?
-- Bagaimana "niat order" diukur/di-filter?
-- Tabel `customers` terpisah dari `admin_users` — schema & RLS baru.
-- Migrasi: Daftar Pesanan localStorage (Task 15) di-merge ke akun begitu pelanggan login/daftar.
-- Kaitan dengan rencana bot WA agentic (sudah dicatat sejak PRD awal).
+**Sistem Akun & Login Pelanggan** — tujuan: filter pelanggan yang niat order. Belum terjawab: data pendaftaran apa saja, cara ukur "niat order", tabel `customers` terpisah dari `admin_users` (schema+RLS baru), migrasi Daftar Pesanan localStorage ke akun, kaitan dengan bot WA agentic (n8n + Fonnte + paket AI automasi yang sudah dibeli Joe — lihat histori diskusi).
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| Deskripsi produk belum siap (bottleneck yang sudah diidentifikasi) | Medium | Build tetap jalan dengan data placeholder; deskripsi dicicil paralel via tracker Notion, tidak jadi blocker Task 1-10 |
-| Logic kalkulasi harga dinamis (Task 9) meleset | High | Wajib verifikasi manual dengan beberapa kombinasi sebelum checkpoint |
-| Domain belum dibeli saat deploy | Low | Deploy dulu ke \*.vercel.app, sambungkan domain belakangan tanpa perlu build ulang |
-| **[RESOLVED] Security Hardening: Admin Mutation Enforces Session Verification** | **None (Resolved)** | **SELESAI**: `getMutationClient()` telah digantikan dengan `requireAdminMutationClient()` di root `lib/supabase/server.ts` dan seluruh repository (`products`, `categories`, `variants`, `addons`, `product-images`, `home-banners`, `business-info`). Setiap mutasi wajib lolos `auth.getUser()` dan verifikasi tabel `admin_users`, jika tidak langsung melempar error `UNAUTHORIZED`/`FORBIDDEN`. Selain itu, `middleware.ts` dan `app/admin/layout.tsx` secara aktif me-redirect akses tanpa sesi ke `/admin/login`. Terbukti lolos uji tolak (100% rejected untuk request tanpa sesi). |
+| Risk                                                                            | Impact              | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deskripsi produk belum siap                                                     | Medium              | Build tetap jalan dengan placeholder; dicicil via tracker Notion                                                                                                                                                                                                                                                                                                                                                                                     |
+| Logic kalkulasi harga dinamis meleset                                           | High                | Verifikasi manual multi-kombinasi tiap engine sebelum checkpoint                                                                                                                                                                                                                                                                                                                                                                                     |
+| Domain belum dibeli saat deploy                                                 | Low                 | Deploy dulu ke \*.vercel.app, sambungkan domain belakangan                                                                                                                                                                                                                                                                                                                                                                                           |
+| **[RESOLVED] Security Hardening: Admin Mutation Enforces Session Verification** | **None (Resolved)** | `getMutationClient()` diganti `requireAdminMutationClient()` di semua repository (products, categories, variants, addons, product-images, home-banners, business-info). Wajib lolos `auth.getUser()` + cek `admin_users`, gagal → UNAUTHORIZED/FORBIDDEN. `middleware.ts` + `app/admin/layout.tsx` redirect akses tanpa sesi ke login. Terverifikasi dengan uji POSITIF (admin asli login & mutasi berhasil) dan NEGATIF (anon/token palsu ditolak). |
 
 ## Open Questions
 
-- Apakah foto pilot (Stiker Kromo A3+, dst) sudah tersedia untuk Task 4, atau pakai placeholder dulu?
-- Target waktu penyelesaian pilot ini kapan (untuk estimasi cicilan deskripsi & build)?
+- Foto pilot lengkap untuk semua produk Wave 1 — masih dicicil bertahap oleh Joe.
+- Harga asli Finishing Spanduk Kain — menunggu Joe.

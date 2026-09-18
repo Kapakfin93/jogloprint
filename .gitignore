@@ -51,3 +51,4 @@ agent/
 skills-lock.json
 app/test-cloudinary/
 *.log
+council-*
