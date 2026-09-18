@@ -58,6 +58,31 @@ function formatAreaItemLines(params: OrderMessageParams, addonText: string): str
   return lines;
 }
 
+function formatAddonLines(params: OrderMessageParams, addonText: string, safeUnit: string): string[] {
+  if (params.selectedAddons && params.selectedAddons.length > 1) {
+    return [
+      `Opsi Tambahan (${params.selectedAddons.length} opsi terpilih):`,
+      ...params.selectedAddons.map((a) => {
+        const itemPrice = (a.price_flat || 0) === 0 ? "Bawaan / Rp 0" : `+${formatCurrency(a.price_flat || 0)}`;
+        return `  - ${a.name} (${itemPrice}/${safeUnit})`;
+      }),
+      `Total Tambahan: +${formatCurrency(params.addonPrice)} / ${safeUnit}`,
+    ];
+  }
+
+  const isBlankAddon =
+    (!params.selectedAddons || params.selectedAddons.length === 0) &&
+    (!params.addonName || params.addonName === "Standar / Tanpa Tambahan" || params.addonName === "Tanpa Opsi Tambahan" || params.addonName === "-");
+
+  if (isBlankAddon) {
+    return [];
+  }
+
+  const isLaminate = params.productName.toLowerCase().includes("stiker") || params.addonName.toLowerCase().includes("laminasi");
+  const label = isLaminate ? "Laminasi" : "Opsi Tambahan";
+  return [`${label}: ${params.addonName} (${addonText}/${safeUnit})`];
+}
+
 function formatSingleItemLines(params: OrderMessageParams, addonText: string, safeUnit: string): string[] {
   if (params.pricingModel === "area" && params.lengthCm && params.widthCm) {
     return formatAreaItemLines(params, addonText);
@@ -84,21 +109,7 @@ function formatSingleItemLines(params: OrderMessageParams, addonText: string, sa
     ];
   }
 
-  let addonLines: string[];
-  if (params.selectedAddons && params.selectedAddons.length > 1) {
-    addonLines = [
-      `Opsi Tambahan (${params.selectedAddons.length} opsi terpilih):`,
-      ...params.selectedAddons.map((a) => {
-        const itemPrice = (a.price_flat || 0) === 0 ? "Bawaan / Rp 0" : `+${formatCurrency(a.price_flat || 0)}`;
-        return `  - ${a.name} (${itemPrice}/${safeUnit})`;
-      }),
-      `Total Tambahan: +${formatCurrency(params.addonPrice)} / ${safeUnit}`,
-    ];
-  } else {
-    const isLaminate = params.productName.toLowerCase().includes("stiker") || params.addonName.toLowerCase().includes("laminasi");
-    const label = isLaminate ? "Laminasi" : "Opsi Tambahan";
-    addonLines = [`${label}: ${params.addonName} (${addonText}/${safeUnit})`];
-  }
+  const addonLines = formatAddonLines(params, addonText, safeUnit);
 
   return [
     `Finishing: ${params.variantName}`,

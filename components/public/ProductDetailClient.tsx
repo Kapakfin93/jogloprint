@@ -65,13 +65,53 @@ export default function ProductDetailClient({
 
   const handleToggleAddon = useCallback((id: string) => {
     if (isMulti) {
-      setSelectedAddonIds((prev) =>
-        prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-      );
+      setSelectedAddonIds((prev) => {
+        const clickedAddon = addons.find((a) => a.id === id);
+        if (!clickedAddon) return prev;
+
+        const isRemoving = prev.includes(id);
+
+        const getGroupKey = (name: string): string | null => {
+          const n = name.toLowerCase();
+          if (n.includes("laminasi") || n.includes("glossy") || n.includes("doff")) return "laminasi";
+          if (n.includes("jilid")) return "jilid";
+          if (n.includes("warna") && (n.includes("1 warna") || n.includes("multi warna") || n.includes("2+ warna") || n.includes("2 warna"))) return "warna";
+          if (n.includes("cetak isi") || n.includes("kertas isi")) return "isi";
+          return null;
+        };
+
+        const group = getGroupKey(clickedAddon.name);
+
+        if (isRemoving) {
+          const remaining = prev.filter((item) => item !== id);
+          if (group) {
+            const hasOtherInGroup = remaining.some((remId) => {
+              const other = addons.find((a) => a.id === remId);
+              return other && getGroupKey(other.name) === group;
+            });
+            if (!hasOtherInGroup) {
+              const defaultInGroup = addons.find((a) => a.is_default && getGroupKey(a.name) === group);
+              if (defaultInGroup) {
+                return [...remaining, defaultInGroup.id];
+              }
+            }
+          }
+          return remaining;
+        } else {
+          let filtered = prev;
+          if (group) {
+            filtered = prev.filter((prevId) => {
+              const other = addons.find((a) => a.id === prevId);
+              return !(other && getGroupKey(other.name) === group);
+            });
+          }
+          return [...filtered, id];
+        }
+      });
     } else {
       setSelectedAddonIds([id]);
     }
-  }, [isMulti]);
+  }, [isMulti, addons]);
 
   const [qty, setQty] = useState<number>(minOrderQty || 1);
   const [lengthCm, setLengthCm] = useState<number>(150);
