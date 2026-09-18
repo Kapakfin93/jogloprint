@@ -9,6 +9,7 @@ interface VariantFormModalProps {
   readonly productId: string;
   readonly variant?: VariantWithTiers | null;
   readonly pricingModel?: string;
+  readonly unitLabel?: string;
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly onSuccess: () => void;
@@ -18,6 +19,7 @@ export default function VariantFormModal({
   productId,
   variant,
   pricingModel = "sheet",
+  unitLabel,
   isOpen,
   onClose,
   onSuccess,
@@ -30,6 +32,7 @@ export default function VariantFormModal({
       productId={productId}
       variant={variant}
       pricingModel={pricingModel}
+      unitLabel={unitLabel}
       onClose={onClose}
       onSuccess={onSuccess}
     />
@@ -40,6 +43,7 @@ function VariantFormContent({
   productId,
   variant,
   pricingModel,
+  unitLabel,
   onClose,
   onSuccess,
 }: Omit<VariantFormModalProps, "isOpen">) {
@@ -168,7 +172,7 @@ function VariantFormContent({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Contoh: Mata ayam tiap sudut untuk pengikatan tali"
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none"
             />
           </div>
 
@@ -176,6 +180,7 @@ function VariantFormContent({
             tiers={tiers}
             onChange={setTiers}
             pricingModel={pricingModel}
+            unitLabel={unitLabel}
           />
 
           <div className="grid grid-cols-2 gap-4 pt-2">
@@ -188,7 +193,7 @@ function VariantFormContent({
                 type="number"
                 value={displayOrder}
                 onChange={(e) => setDisplayOrder(Number.parseInt(e.target.value, 10) || 0)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-semibold text-slate-800 focus:border-amber-500 focus:outline-none"
               />
             </div>
             <div className="flex items-center pt-5">

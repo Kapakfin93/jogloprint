@@ -14,20 +14,25 @@ interface VariantPriceTierEditorProps {
   readonly tiers: FormTierItem[];
   readonly onChange: (tiers: FormTierItem[]) => void;
   readonly pricingModel?: string;
+  readonly unitLabel?: string;
 }
 
 export default function VariantPriceTierEditor({
   tiers,
   onChange,
   pricingModel = "sheet",
+  unitLabel,
 }: VariantPriceTierEditorProps) {
   const isArea = pricingModel === "area";
   const isMeterLari = pricingModel === "meter_lari";
   const isBundle = pricingModel === "bundle";
 
-  let qtyHeader = "Qty (Lembar)";
-  let priceHeader = "Harga per Lembar (Rp)";
-  let helperText = "Tier grosir berlaku per kuantitas lembar A3+ / pcs produk.";
+  const safeUnit = unitLabel ? unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1) : "Lembar";
+  let qtyHeader = `Qty (${safeUnit})`;
+  let priceHeader = `Harga per ${safeUnit} (Rp)`;
+  let helperText = unitLabel
+    ? `Tier grosir berlaku per kuantitas ${unitLabel} produk.`
+    : "Tier grosir berlaku per kuantitas lembar A3+ / pcs produk.";
 
   if (isArea) {
     qtyHeader = "Qty (Pcs)";
@@ -121,7 +126,7 @@ export default function VariantPriceTierEditor({
                       min={1}
                       value={tier.min_qty}
                       onChange={(e) => handleChange(idx, "min_qty", Number.parseInt(e.target.value, 10) || 1)}
-                      className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none"
+                      className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-800 focus:border-amber-500 focus:outline-none"
                     />
                   </td>
                   <td className="px-2.5 py-2">
@@ -133,7 +138,7 @@ export default function VariantPriceTierEditor({
                         const v = e.target.value.trim();
                         handleChange(idx, "max_qty", v === "" ? null : Number.parseInt(v, 10));
                       }}
-                      className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none"
+                      className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none"
                     />
                   </td>
                   <td className="px-2.5 py-2">
@@ -151,7 +156,7 @@ export default function VariantPriceTierEditor({
                       placeholder="1 Hari"
                       value={tier.lead_time_days}
                       onChange={(e) => handleChange(idx, "lead_time_days", e.target.value)}
-                      className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none"
+                      className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none"
                     />
                   </td>
                   <td className="px-2.5 py-2">
@@ -160,7 +165,7 @@ export default function VariantPriceTierEditor({
                       placeholder="Hemat 15%"
                       value={tier.discount_label}
                       onChange={(e) => handleChange(idx, "discount_label", e.target.value)}
-                      className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-amber-500 focus:outline-none"
+                      className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none"
                     />
                   </td>
                   <td className="px-2 py-2 text-center">

@@ -168,6 +168,7 @@ export default function VariantManager({ product, variants }: VariantManagerProp
         productId={product.id}
         variant={selectedVariant}
         pricingModel={product.pricing_model}
+        unitLabel={product.unit_label || undefined}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => router.refresh()}
